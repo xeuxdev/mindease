@@ -1,0 +1,97 @@
+Architecture Overview
+---------------------
+1. Frontend: 
+   - Built using React + TypeScript.
+   - Renders a clean, responsive UI and handles user inputs.
+2. Backend:
+   - Implemented with Node.js.
+   - Processes requests, manages state, and communicates with AI API.
+3. AI Model Service:
+   - Uses a cost-effective OpenAI endpoint (e.g., GPT-3.5 Turbo).
+   - Generates therapeutically guided responses based on conversation history.
+4. (Optional) Database:
+   - Firebase or MongoDB for storing session history and user authentication data.
+
+Detailed Workflow
+1. User visits site → logs in anonymously or via email.
+2. Frontend loads chat UI with history.
+3. User types or speaks a message.
+4. Frontend encrypts message (E2E with user↔server key).
+5. Encrypted message ► Node.js backend.
+6. Backend decrypts, adds context & guardrails.
+7. Backend calls AI API (GPT-3.5 Turbo).
+8. AI streams response → backend.
+9. Backend re-encrypts and forwards to frontend.
+10. Frontend decrypts & renders response.
+11. Conversation stored (minimal context, anonymity enforced).
+
+Security & Anonymity
+- End-to-end encryption with per-session keys.  
+- No PII stored; only hashed identifiers.  
+- Opt-in pseudonymous logs for user reflection.
+
+Basic Flowchart
+      User
+        │
+        ▼
+  Frontend (React) ── encrypt/decrypt ──► Backend (Node.js)
+        │                                 │
+        ▼                                 ▼
+   (UI render)                      AI Model API
+        │                                 │
+        ▼                                 ▼
+(Optional) Database ◀── encrypted storage ──┘
+
+System Architecture Details
+---------------------------
+- Architectural Pattern: Three-tier (presentation, business logic, data) to isolate concerns and simplify maintenance.
+- Protocols:
+   • Frontend ↔ Backend: HTTPS (REST/WebSocket) with JSON payloads.
+   • Backend ↔ AI Service: HTTPS REST calls with retry and back-off.
+   • Backend ↔ Database: TLS-secured connections.
+
+Component Breakdown
+-------------------
+1. Frontend (React + TypeScript)
+   • Chat UI: message list, input box, status indicators.
+   • State Mgmt: Context API/Redux for session & message state.
+   • WebSocket Client: real-time bi-directional messaging.
+   • Input Sanitization & Validation.
+
+2. Backend (Node.js + Express)
+   • API Layer: endpoints for chat, auth, and logs.
+   • Message Processor: injects system prompts and filters user text.
+   • Session Manager: in-memory or Redis store for context windows.
+   • AI Adapter: handles OpenAI GPT-3.5 Turbo calls, rate-limit logic.
+   • Persistence Layer: optional MongoDB/Firebase connector.
+
+3. AI Model Service (OpenAI GPT-3.5 Turbo)
+   • Prompt Templates: enforce therapeutic tone and safety rules.
+   • Response Filter: strip prohibited content, ensure clarity.
+   • Cost Controls: max_tokens and frequency caps.
+
+4. Database (Optional)
+   • Collections: Users, Conversations (timestamped, anonymized).
+   • Security Rules: role-based access control, TTL indexes for data retention.
+
+Deployment & Infrastructure
+---------------------------
+- Containerization: Docker for frontend/backend.
+- CI/CD: GitHub Actions → build/test → deploy to Azure App Service or AWS ECS.
+- Monitoring: Prometheus/Grafana for metrics; Sentry for errors.
+
+Non-Functional Requirements
+---------------------------
+- Scalability: auto-scale backend based on load.
+- Availability: 99.9% uptime; fallback UI if AI is unreachable.
+- Performance: ≤200ms UI latency (excluding AI).
+- Security: E2E encryption, OWASP compliance.
+
+Sequence Diagram
+----------------
+User → Frontend: send message
+Frontend → Backend: encrypted payload
+Backend → AI Service: sanitized prompt
+AI Service → Backend: response
+Backend → Frontend: encrypted reply
+Frontend → UI: display message

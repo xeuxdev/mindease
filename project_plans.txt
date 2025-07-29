@@ -1,0 +1,65 @@
+Project Plans
+-------------
+Table of Contents
+1. Chapter 1 – Introduction
+2. Chapter 2 – Literature Review
+3. Chapter 3 – System Design & Architecture
+4. Chapter 4 – Project Planning & Milestones
+5. Chapter 5 – Risk Management & Quality Assurance
+6. Chapter 6 – Conclusion
+
+Chapter 1 – Introduction
+------------------------
+1.1 Background
+   - Mental health services are cost-prohibitive or inaccessible in many regions.
+1.2 Problem Statement
+   - Lack of anonymous, immediate emotional support.
+1.3 Objectives & Scope
+   - Build 24/7 AI chatbot for guided conversation.
+   - Exclusions: no clinical diagnosis or emergency intervention.
+
+Chapter 2 – Literature Review
+-----------------------------
+2.1 AI Chatbots in Therapy
+   - Survey of Woebot, Wysa, and academic studies on efficacy.
+2.2 LLM Cost & Performance
+   - GPT-3.5 Turbo vs GPT-4 vs open-source LLaMA2 benchmarks.
+2.3 Privacy & Security Standards
+   - GDPR, HIPAA considerations for data handling.
+
+Chapter 3 – System Design & Architecture
+----------------------------------------
+Refer to `architecture.txt` for detailed component diagrams and data flows.
+
+Chapter 4 – Project Planning & Milestones
+-----------------------------------------
+4.1 Timeline & Phases
+   - Phase 1 (Wk1-2): Stakeholder interviews, SRS drafting.
+   - Phase 2 (Wk3-4): UI/UX wireframes, tech stack validation.
+   - Phase 3 (Wk5-8): Core feature development (chat UI, message API).
+   - Phase 4 (Wk9-10): AI integration, encryption, end-to-end testing.
+   - Phase 5 (Wk11-12): Load testing, bug fixes, documentation, demo prep.
+4.2 Milestones & Deliverables
+   - M1 (End Wk2): Approved SRS & architecture.
+   - M2 (End Wk4): UI prototype with mock messaging.
+   - M3 (Mid Wk6): Backend API & session management ready.
+   - M4 (End Wk8): Live AI responses in UI; test logs.
+   - M5 (End Wk12): Final demo, user feedback report, submission.
+
+Chapter 5 – Risk Management & Quality Assurance
+----------------------------------------------
+5.1 Risk Identification
+   - API rate limits, data breaches, timeline slippage.
+5.2 Mitigation Strategies
+   - Caching, encryption, buffer weeks, weekly retrospectives.
+5.3 QA Plan
+   - Unit tests for processors and adapters.
+   - Integration tests with mocked AI.
+   - Performance tests for concurrency and latency.
+
+Chapter 6 – Conclusion & Future Work
+------------------------------------
+6.1 Summary
+   - Recapped objectives, architecture, and plan.
+6.2 Future Enhancements
+   - Sentiment analysis tuning, multi-language support, voice interface.

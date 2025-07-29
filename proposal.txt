@@ -1,0 +1,91 @@
+AI-Powered Therapist Chatbot 
+Problem Statement 
+Access to affordable mental health support is limited, especially in regions where 
+therapists are scarce or expensive. Many individuals need immediate emotional support 
+without the pressure of booking sessions or revealing identities. 
+Objectives 
+• To build a conversational AI chatbot that simulates therapeutic support. 
+• To provide anonymous, accessible, 24/7 mental health assistance. 
+• To log conversation history for user reflection (optional). 
+• To ensure safe interaction with proper boundaries and disclaimers. 
+Technical Approach 
+• Use a pre-trained LLM API for chat handling (e.g., OpenAI GPT). 
+• Design predefined conversation flows and guardrails to ensure ethical responses. 
+• Implement state management and message context handling. 
+• Optionally, add user authentication for returning users or conversation logs. 
+Technologies Used 
+• Frontend: React + TypeScript 
+• Backend/API: Node.js  
+• AI: OpenAI API (or similar) 
+• Database: Firebase / MongoDB (optional for session history) 
+Expected Outcomes / Deliverables 
+• A functioning AI chatbot with a clean UI 
+• Support for real-time messaging and sentiment-aware responses 
+• A basic admin view (optional) for monitoring usage 
+• Demo video and deployment link
+--------------------------------------------------
+Additional Documentation
+
+Product Requirements Document (PRD)
+-------------------------------------
+Title: AI-Powered Therapist Chatbot
+Objective: Provide accessible, anonymous, 24/7 mental health support using conversational AI.
+Target Users: Individuals seeking immediate emotional support and those in regions with limited therapist access.
+Key Features:
+  - Conversational interface simulating therapeutic sessions.
+  - Anonymous user interactions.
+  - Optional conversation logging for user reflection.
+  - Predefined conversation flows with safe-guard mechanisms.
+  - Optional user authentication for session history.
+Non-functional Requirements:
+  - Responsive UI with real-time messaging.
+  - Secure communication and data handling.
+  - Minimal latency in AI response.
+
+System Architecture & Flow
+--------------------------
+Architecture Components:
+  - Frontend: React + TypeScript for user interaction.
+  - Backend/API: Node.js to handle requests and integrate with external APIs.
+  - AI Service: Integration with a cost-effective OpenAI model (e.g., GPT-3.5 Turbo or equivalent).
+  - (Optional) Database: Firebase/MongoDB for storing conversation logs.
+Workflow:
+  1. User sends a message via the React frontend.
+  2. Message is forwarded to the Node.js backend.
+  3. The backend preprocesses the input and interacts with the AI model API.
+  4. AI model generates a response based on conversation context and guardrails.
+  5. The response is post-processed (if needed) and returned to the front end.
+  6. (Optional) Conversation data is stored for returning users or analytics.
+  
+AI Model Workflow
+-----------------
+Proposed Workflow for Cost-Effective AI Integration:
+  - Utilize a lower-cost OpenAI endpoint (e.g., GPT-3.5 Turbo) with minimal prompt engineering.
+  - Preprocess user input to include conversation context with safety instructions.
+  - Invoke the AI API, then filter and refine the response for clarity and compliance with therapeutic boundaries.
+  - Manage conversation context on the backend to maintain session continuity without redundant data storage.
+
+User Flow
+---------
+1. Landing: User accesses the clean and responsive UI.
+2. Start Chat: User inputs a query or emotion; optional login for saving sessions.
+3. Interaction: The Node.js backend processes and passes the input to the AI model.
+4. Response: The AI generates a therapeutically guided response and displays it in real time.
+5. End Session: User exits or optionally explores past interactions via session history.
+
+Architecture Flowchart
+----------------------
+[Simple flowchart representation]
+  User
+    │
+    ▼
+  Frontend (React + TypeScript)
+    │
+    ▼
+  Backend (Node.js)
+    │         ┌────────────────┐
+    │────────▶│ AI Model API   │
+    │         └────────────────┘
+    │
+    ▼
+(Optional) Database (Firebase/MongoDB)
