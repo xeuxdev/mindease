@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
 import { env, jwtConfig } from "../config/env";
+import { cookieNames } from "../config/constants";
 
 const router = Router();
 
@@ -47,6 +48,12 @@ router.post("/anonymous", async (req: Request, res: Response) => {
       sessionId: session.id,
       correlationId: req.correlationId,
     });
+
+    res.setHeader("Set-Cookie", [
+      `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      `isAnonymous=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+    ]);
 
     res.status(201).json({
       success: true,
@@ -175,6 +182,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const errors = validationResult(req);
+
       if (!errors.isEmpty()) {
         return res.status(400).json({
           success: false,
@@ -184,6 +192,13 @@ router.post(
       }
 
       const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Email and password are required",
+        });
+      }
 
       // Find user
       const user = await prisma.user.findUnique({
@@ -197,8 +212,14 @@ router.post(
         });
       }
 
-      // Verify password (assuming you store hashed passwords separately)
-      // Note: This is a simplified version. In production, store passwords securely
+      const isPasswordValid = await bcrypt.compare(password, user.password!);
+
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
 
       // Create new session
       const sessionToken = jwt.sign(
@@ -221,6 +242,12 @@ router.post(
         sessionId: session.id,
         correlationId: req.correlationId,
       });
+
+      res.setHeader("Set-Cookie", [
+        `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+        `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+        `${cookieNames.email}=${email}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      ]);
 
       return res.json({
         success: true,
@@ -249,22 +276,23 @@ router.post(
 // Logout
 router.post("/logout", async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
+    const cookieName = cookieNames.sessionToken;
+    const token = req.cookies[cookieName];
 
-    if (authHeader) {
-      const token = authHeader.split(" ")[1];
+    if (token) {
+      // Delete session
+      await prisma.session.deleteMany({
+        where: { token },
+      });
 
-      if (token) {
-        // Delete session
-        await prisma.session.deleteMany({
-          where: { token },
-        });
-
-        logger.info("User logged out", {
-          correlationId: req.correlationId,
-        });
-      }
+      logger.info("User logged out", {
+        correlationId: req.correlationId,
+      });
     }
+
+    res.clearCookie(cookieNames.sessionToken);
+    res.clearCookie(cookieNames.email);
+    res.clearCookie(cookieNames.hashedId);
 
     return res.json({
       success: true,
@@ -282,17 +310,18 @@ router.post("/logout", async (req: Request, res: Response) => {
 // Validate token
 router.post("/validate", async (req: Request, res: Response) => {
   try {
-    const { token } = req.body;
+    const cookies = req.cookies;
+    const authToken = cookies[cookieNames.sessionToken];
 
-    if (!token) {
-      return res.status(400).json({
+    if (!authToken) {
+      return res.status(401).json({
         success: false,
-        message: "Token is required",
+        message: "Authorization token is required",
       });
     }
 
     // Verify token
-    const decoded = jwt.verify(token, jwtConfig.secret);
+    const decoded = jwt.verify(authToken, jwtConfig.secret);
 
     if (!decoded || typeof decoded !== "object" || !("userId" in decoded)) {
       return res.status(401).json({
@@ -303,7 +332,7 @@ router.post("/validate", async (req: Request, res: Response) => {
 
     // Check session
     const session = await prisma.session.findUnique({
-      where: { token },
+      where: { token: authToken },
       include: { user: true },
     });
 

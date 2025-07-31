@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
 import { aiService } from "./ai-service";
-import { env, jwtConfig } from "@/config/env";
+import { env, jwtConfig } from "../config/env";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;

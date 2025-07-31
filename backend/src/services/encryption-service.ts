@@ -1,4 +1,4 @@
-import { env } from "@/config/env";
+import { env } from "../config/env";
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-gcm";

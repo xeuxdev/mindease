@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { logger } from "../utils/logger";
 import { prisma } from "../config/database";
-import { env } from "@/config/env";
+import { env } from "../config/env";
 
 interface ErrorWithStatus extends Error {
   statusCode?: number;

@@ -1,7 +1,7 @@
 import axios from "axios";
 import { logger } from "../utils/logger";
 import { prisma } from "../config/database";
-import { aiConfig } from "@/config/env";
+import { aiConfig } from "../config/env";
 
 interface AIResponse {
   content: string;

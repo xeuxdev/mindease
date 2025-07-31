@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { Server } from "socket.io";
 import { createServer } from "http";
+import cookieParser from "cookie-parser";
 
 // Import environment configuration (must be first)
 import {
@@ -11,6 +12,7 @@ import {
   validateFeatureRequirements,
   serverConfig,
   rateLimitConfig,
+  jwtConfig,
 } from "./config/env";
 
 // Import middleware
@@ -54,6 +56,9 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(helmet());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser(jwtConfig.secret));
 app.use(
   cors({
     origin: serverConfig.corsOrigin,
