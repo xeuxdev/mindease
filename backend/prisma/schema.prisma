@@ -1,0 +1,115 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id          String   @id @default(uuid())
+    email       String?  @unique
+    isAnonymous Boolean  @default(true)
+    hashedId    String   @unique
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    password    String? // Nullable for anonymous users
+
+    // Relationships
+    conversations Conversation[]
+    sessions      Session[]
+
+    @@map("users")
+}
+
+model Session {
+    id        String   @id @default(uuid())
+    userId    String
+    token     String   @unique
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+
+    // Relationships
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("sessions")
+}
+
+model Conversation {
+    id        String   @id @default(uuid())
+    userId    String
+    title     String?
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relationships
+    user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    messages Message[]
+
+    @@map("conversations")
+}
+
+model Message {
+    id             String      @id @default(uuid())
+    conversationId String
+    content        String
+    role           MessageRole
+    timestamp      DateTime    @default(now())
+    metadata       Json? // For storing additional AI response metadata
+
+    // Relationships
+    conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+    @@map("messages")
+}
+
+model SystemLog {
+    id        String   @id @default(uuid())
+    level     LogLevel
+    message   String
+    metadata  Json?
+    timestamp DateTime @default(now())
+    source    String? // Which service/component generated the log
+
+    @@map("system_logs")
+}
+
+model ErrorLog {
+    id         String    @id @default(uuid())
+    error      String
+    stack      String?
+    context    Json? // Request context, user context, etc.
+    timestamp  DateTime  @default(now())
+    resolved   Boolean   @default(false)
+    resolvedAt DateTime?
+
+    @@map("error_logs")
+}
+
+model ApiUsage {
+    id           String   @id @default(uuid())
+    userId       String?
+    endpoint     String
+    method       String
+    tokens       Int? // For AI API usage tracking
+    cost         Decimal? @db.Decimal(10, 4)
+    responseTime Int? // in milliseconds
+    timestamp    DateTime @default(now())
+
+    @@map("api_usage")
+}
+
+enum MessageRole {
+    USER
+    ASSISTANT
+    SYSTEM
+}
+
+enum LogLevel {
+    ERROR
+    WARN
+    INFO
+    DEBUG
+}
