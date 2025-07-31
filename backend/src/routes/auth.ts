@@ -27,8 +27,10 @@ router.post("/anonymous", async (req: Request, res: Response) => {
       },
     });
 
+    const sessionId = crypto.randomUUID();
+
     const sessionToken = jwt.sign(
-      { userId: user.id, sessionId: crypto.randomUUID() },
+      { userId: user.id, sessionId: sessionId },
       env.JWT_SECRET,
       {
         expiresIn: jwtConfig.expiresIn,
@@ -37,6 +39,7 @@ router.post("/anonymous", async (req: Request, res: Response) => {
 
     const session = await prisma.session.create({
       data: {
+        id: sessionId,
         userId: user.id,
         token: sessionToken,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
@@ -129,25 +132,9 @@ router.post(
         },
       });
 
-      // Create session
-      const sessionToken = jwt.sign(
-        { userId: user.id, sessionId: crypto.randomUUID() },
-        env.JWT_SECRET!,
-        { expiresIn: jwtConfig.expiresIn }
-      );
-
-      const session = await prisma.session.create({
-        data: {
-          userId: user.id,
-          token: sessionToken,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      });
-
       logger.info("User registered", {
         userId: user.id,
         email: user.email,
-        sessionId: session.id,
         correlationId: req.correlationId,
       });
 
@@ -155,14 +142,12 @@ router.post(
         success: true,
         message: "User registered successfully",
         data: {
-          token: sessionToken,
           user: {
             id: user.id,
             email: user.email,
             isAnonymous: false,
             hashedId: user.hashedId,
           },
-          expiresAt: session.expiresAt,
         },
       });
     } catch (error) {
@@ -221,15 +206,18 @@ router.post(
         });
       }
 
+      const sessionId = crypto.randomUUID();
+
       // Create new session
       const sessionToken = jwt.sign(
-        { userId: user.id, sessionId: crypto.randomUUID() },
+        { userId: user.id, sessionId: sessionId },
         env.JWT_SECRET!,
         { expiresIn: jwtConfig.expiresIn as number }
       );
 
       const session = await prisma.session.create({
         data: {
+          id: sessionId,
           userId: user.id,
           token: sessionToken,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -293,6 +281,7 @@ router.post("/logout", async (req: Request, res: Response) => {
     res.clearCookie(cookieNames.sessionToken);
     res.clearCookie(cookieNames.email);
     res.clearCookie(cookieNames.hashedId);
+    res.clearCookie("isAnonymous");
 
     return res.json({
       success: true,

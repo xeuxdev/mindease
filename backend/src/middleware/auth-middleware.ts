@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
 import { jwtConfig } from "../config/env";
+import { cookieNames } from "../config/constants";
 
 interface JwtPayload {
   userId: string;
@@ -31,16 +32,14 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = req.cookies[cookieNames.sessionToken];
 
-    if (!authHeader) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "Access token is required",
       });
     }
-
-    const token = authHeader.split(" ")[1]; // Bearer TOKEN
 
     if (!token) {
       return res.status(401).json({
