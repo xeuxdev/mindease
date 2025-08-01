@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { Request, Response, Router } from "express";
 import { body, validationResult } from "express-validator";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
 import { env, jwtConfig } from "../config/env";
@@ -55,7 +55,7 @@ router.post("/anonymous", async (req: Request, res: Response) => {
     res.setHeader("Set-Cookie", [
       `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
       `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      `isAnonymous=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      `${cookieNames.isAnonymous}=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
     ]);
 
     res.status(201).json({
@@ -235,6 +235,7 @@ router.post(
         `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
         `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
         `${cookieNames.email}=${email}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+        `${cookieNames.isAnonymous}=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
       ]);
 
       return res.json({
@@ -281,7 +282,50 @@ router.post("/logout", async (req: Request, res: Response) => {
     res.clearCookie(cookieNames.sessionToken);
     res.clearCookie(cookieNames.email);
     res.clearCookie(cookieNames.hashedId);
-    res.clearCookie("isAnonymous");
+    res.clearCookie(cookieNames.isAnonymous);
+
+    return res.json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    logger.error("Logout failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Logout failed",
+    });
+  }
+});
+
+// Logout
+router.post("/logout/all-devices", async (req: Request, res: Response) => {
+  try {
+    const cookieName = cookieNames.sessionToken;
+    const token = req.cookies[cookieName];
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "No active session found",
+      });
+    }
+
+    // Verify JWT token
+    const decoded = jwt.verify(token, jwtConfig.secret) as JwtPayload;
+
+    // Delete session
+    await prisma.session.deleteMany({
+      where: { userId: decoded.userId },
+    });
+
+    logger.info("User logged out from all devices", {
+      correlationId: req.correlationId,
+    });
+
+    res.clearCookie(cookieNames.sessionToken);
+    res.clearCookie(cookieNames.email);
+    res.clearCookie(cookieNames.hashedId);
+    res.clearCookie(cookieNames.isAnonymous);
 
     return res.json({
       success: true,

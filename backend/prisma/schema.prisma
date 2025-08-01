@@ -20,6 +20,8 @@ model User {
     conversations Conversation[]
     sessions      Session[]
 
+    isDeletedAt DateTime? // For soft delete
+
     @@map("users")
 }
 

@@ -1,11 +1,11 @@
-import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database';
-import { logger } from '../utils/logger';
+import { Router, Request, Response } from "express";
+import { prisma } from "../config/database";
+import { logger } from "../utils/logger";
 
 const router: Router = Router();
 
 // Get user profile
-router.get('/profile', async (req: Request, res: Response) => {
+router.get("/profile", async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
@@ -24,7 +24,7 @@ router.get('/profile', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
+        message: "User not found",
       });
     }
 
@@ -33,16 +33,16 @@ router.get('/profile', async (req: Request, res: Response) => {
       data: { user },
     });
   } catch (error) {
-    logger.error('Failed to get user profile:', error);
+    logger.error("Failed to get user profile:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to get user profile',
+      message: "Failed to get user profile",
     });
   }
 });
 
 // Get user statistics
-router.get('/stats', async (req: Request, res: Response) => {
+router.get("/stats", async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
@@ -80,44 +80,47 @@ router.get('/stats', async (req: Request, res: Response) => {
       data: { stats },
     });
   } catch (error) {
-    logger.error('Failed to get user stats:', error);
+    logger.error("Failed to get user stats:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get user statistics',
+      message: "Failed to get user statistics",
     });
   }
 });
 
 // Delete user account (GDPR compliance)
-router.delete('/account', async (req: Request, res: Response) => {
+router.delete("/account", async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
     await prisma.$transaction(async (tx) => {
       // Delete all user data
       await tx.session.deleteMany({ where: { userId } });
-      await tx.message.deleteMany({
-        where: { conversation: { userId } },
+      await tx.user.update({
+        where: { id: userId },
+        data: { isDeletedAt: new Date() },
       });
-      await tx.conversation.deleteMany({ where: { userId } });
-      await tx.apiUsage.deleteMany({ where: { userId } });
-      await tx.user.delete({ where: { id: userId } });
+      // await tx.message.deleteMany({
+      //   where: { conversation: { userId } },
+      // });
+      // await tx.conversation.deleteMany({ where: { userId } });
+      // await tx.apiUsage.deleteMany({ where: { userId } });
     });
 
-    logger.info('User account deleted', {
+    logger.info("User account deleted", {
       userId,
       correlationId: req.correlationId,
     });
 
     res.json({
       success: true,
-      message: 'Account deleted successfully',
+      message: "Account deleted successfully",
     });
   } catch (error) {
-    logger.error('Failed to delete user account:', error);
+    logger.error("Failed to delete user account:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to delete account',
+      message: "Failed to delete account",
     });
   }
 });
