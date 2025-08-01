@@ -206,6 +206,13 @@ router.post(
         });
       }
 
+      if (user.isDeletedAt) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isDeletedAt: null },
+        });
+      }
+
       const sessionId = crypto.randomUUID();
 
       // Create new session

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
+import { cookieNames } from "../config/constants";
 
 const router: Router = Router();
 
@@ -100,11 +101,6 @@ router.delete("/account", async (req: Request, res: Response) => {
         where: { id: userId },
         data: { isDeletedAt: new Date() },
       });
-      // await tx.message.deleteMany({
-      //   where: { conversation: { userId } },
-      // });
-      // await tx.conversation.deleteMany({ where: { userId } });
-      // await tx.apiUsage.deleteMany({ where: { userId } });
     });
 
     logger.info("User account deleted", {
@@ -112,13 +108,19 @@ router.delete("/account", async (req: Request, res: Response) => {
       correlationId: req.correlationId,
     });
 
-    res.json({
+    res.clearCookie(cookieNames.sessionToken);
+    res.clearCookie(cookieNames.email);
+    res.clearCookie(cookieNames.hashedId);
+    res.clearCookie(cookieNames.isAnonymous);
+
+    return res.json({
       success: true,
-      message: "Account deleted successfully",
+      message:
+        "Account marked for deletion, we would completely delete your account after 30 days. This is to ensure that you have enough time to change your mind.",
     });
   } catch (error) {
     logger.error("Failed to delete user account:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to delete account",
     });
