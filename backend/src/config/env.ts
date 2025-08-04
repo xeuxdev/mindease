@@ -25,8 +25,9 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("604800"), // 7 days in seconds
 
   // External API keys
-  OPENAI_API_KEY: z.string(),
-  ANTHROPIC_API_KEY: z.string().optional(),
+  LLM_API_KEY: z.string(),
+  LLM_API_URL: z.string().url("LLM_API_URL must be a valid URL"),
+  LLM_MODEL: z.string().default("qwen/qwen3-4b"),
 
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z
@@ -63,7 +64,7 @@ const envSchema = z.object({
     .transform((val) => parseInt(val, 10)), // 30 seconds
 
   // AI Service configuration
-  AI_MODEL: z.string().default("gpt-3.5-turbo"),
+  AI_MODEL: z.string().default("qwen/qwen3-4b"),
   AI_MAX_TOKENS: z
     .string()
     .default("1000")
@@ -128,7 +129,7 @@ export const validateFeatureRequirements = () => {
   const warnings: string[] = [];
 
   // Check AI service requirements
-  if (!env.OPENAI_API_KEY && !env.ANTHROPIC_API_KEY) {
+  if (!env.LLM_API_KEY && !env.LLM_API_URL) {
     warnings.push("No AI API keys provided. AI features will be unavailable.");
   }
 
@@ -172,9 +173,9 @@ export const rateLimitConfig = {
 } as const;
 
 export const aiConfig = {
-  openaiApiKey: env.OPENAI_API_KEY,
-  anthropicApiKey: env.ANTHROPIC_API_KEY,
-  model: env.AI_MODEL,
+  llmApiKey: env.LLM_API_KEY,
+  llmApiUrl: env.LLM_API_URL,
+  model: env.LLM_MODEL,
   maxTokens: env.AI_MAX_TOKENS,
   temperature: env.AI_TEMPERATURE,
 } as const;

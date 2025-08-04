@@ -24,9 +24,9 @@ class AIService {
   private baseURL: string;
 
   constructor() {
-    this.apiKey = aiConfig.openaiApiKey;
+    this.apiKey = aiConfig.llmApiKey;
     this.model = aiConfig.model;
-    this.baseURL = "https://api.openai.com/v1";
+    this.baseURL = aiConfig.llmApiUrl;
   }
 
   async generateResponse(

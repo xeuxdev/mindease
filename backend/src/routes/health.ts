@@ -14,7 +14,7 @@ interface HealthStatus {
   services: {
     database: "connected" | "disconnected" | "error";
     redis?: "connected" | "disconnected" | "error";
-    openai?: "available" | "unavailable" | "error";
+    llm?: "available" | "unavailable" | "error";
   };
   system: {
     memory: {
@@ -73,14 +73,14 @@ router.get("/", async (req: Request, res: Response) => {
       healthStatus.status = "unhealthy";
     }
 
-    // Test OpenAI API if key is configured
-    if (env.OPENAI_API_KEY) {
+    // Test LLM API if key is configured
+    if (env.LLM_API_KEY) {
       try {
         // Simple availability check without making an actual API call
-        healthStatus.services.openai = "available";
+        healthStatus.services.llm = "available";
       } catch (error) {
-        logger.error("OpenAI health check failed:", error);
-        healthStatus.services.openai = "error";
+        logger.error("LLM health check failed:", error);
+        healthStatus.services.llm = "error";
       }
     }
 

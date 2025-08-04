@@ -38,7 +38,7 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: serverConfig.corsOrigin,
-    methods: ["GET", "POST"],
+    credentials: true, // Allow credentials (cookies) to be sent
   },
 });
 

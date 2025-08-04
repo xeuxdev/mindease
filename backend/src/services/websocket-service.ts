@@ -4,17 +4,39 @@ import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
 import { aiService } from "./ai-service";
 import { env, jwtConfig } from "../config/env";
+import { cookieNames } from "../config/constants";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   sessionId?: string;
 }
 
+// Helper function to parse cookies from cookie string
+function parseCookies(cookieString: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieString) return cookies;
+
+  cookieString.split(";").forEach((cookie) => {
+    const [name, value] = cookie.trim().split("=");
+    if (name && value) {
+      cookies[name] = decodeURIComponent(value);
+    }
+  });
+
+  return cookies;
+}
+
 export function setupWebSocket(io: SocketIOServer) {
   // Authentication middleware for socket connections
+
+  console.log("Setting up WebSocket authentication middleware");
+
   io.use(async (socket: AuthenticatedSocket, next) => {
+    // const cookie = socket.request.headers.cookie;
     try {
-      const token = socket.handshake.auth.token;
+      const cookieString = socket.handshake.headers.cookie;
+      const cookies = parseCookies(cookieString || "");
+      const token = cookies[cookieNames.sessionToken];
 
       if (!token) {
         return next(new Error("Authentication token required"));
@@ -23,13 +45,20 @@ export function setupWebSocket(io: SocketIOServer) {
       // Verify JWT token
       const decoded = jwt.verify(token, jwtConfig.secret);
 
-      if (!decoded || typeof decoded !== "object" || !("userId" in decoded)) {
+      if (
+        !decoded ||
+        typeof decoded !== "object" ||
+        !("sessionId" in decoded)
+      ) {
         return next(new Error("Invalid token"));
       }
 
-      // Check session
+      // Check session using sessionId from JWT payload
       const session = await prisma.session.findUnique({
-        where: { token },
+        where: {
+          id: (decoded as any).sessionId,
+          token: token,
+        },
         include: { user: true },
       });
 

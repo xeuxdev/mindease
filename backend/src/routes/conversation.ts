@@ -1,81 +1,89 @@
-import { Router, Request, Response } from 'express';
-import { query } from 'express-validator';
-import { prisma } from '../config/database';
-import { logger } from '../utils/logger';
+import { Router, Request, Response } from "express";
+import { query } from "express-validator";
+import { prisma } from "../config/database";
+import { logger } from "../utils/logger";
 
 const router = Router();
 
 // Get user conversations
-router.get('/', [
-  query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 50 }),
-], async (req: Request, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const offset = (page - 1) * limit;
+router.get(
+  "/",
+  [
+    query("page").optional().isInt({ min: 1 }),
+    query("limit").optional().isInt({ min: 1, max: 50 }),
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = (page - 1) * limit;
 
-    const conversations = await prisma.conversation.findMany({
-      where: {
-        userId,
-        isActive: true,
-      },
-      include: {
-        messages: {
-          orderBy: { timestamp: 'desc' },
-          take: 1, // Get latest message for preview
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          userId,
+          isActive: true,
         },
-        _count: {
-          select: { messages: true },
+        include: {
+          messages: {
+            orderBy: { timestamp: "desc" },
+            take: 1, // Get latest message for preview
+          },
+          _count: {
+            select: { messages: true },
+          },
         },
-      },
-      orderBy: { updatedAt: 'desc' },
-      skip: offset,
-      take: limit,
-    });
+        orderBy: { updatedAt: "desc" },
+        skip: offset,
+        take: limit,
+      });
 
-    const total = await prisma.conversation.count({
-      where: {
-        userId,
-        isActive: true,
-      },
-    });
-
-    res.json({
-      success: true,
-      data: {
-        conversations: conversations.map(conv => ({
-          id: conv.id,
-          title: conv.title,
-          createdAt: conv.createdAt,
-          updatedAt: conv.updatedAt,
-          messageCount: conv._count.messages,
-          lastMessage: conv.messages[0] ? {
-            content: conv.messages[0].content.substring(0, 100) + (conv.messages[0].content.length > 100 ? '...' : ''),
-            timestamp: conv.messages[0].timestamp,
-            role: conv.messages[0].role,
-          } : null,
-        })),
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
+      const total = await prisma.conversation.count({
+        where: {
+          userId,
+          isActive: true,
         },
-      },
-    });
-  } catch (error) {
-    logger.error('Failed to get conversations:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get conversations',
-    });
+      });
+
+      res.json({
+        success: true,
+        data: {
+          conversations: conversations.map((conv) => ({
+            id: conv.id,
+            title: conv.title,
+            createdAt: conv.createdAt,
+            updatedAt: conv.updatedAt,
+            messageCount: conv._count.messages,
+            lastMessage: conv.messages[0]
+              ? {
+                  content:
+                    conv.messages[0].content.substring(0, 100) +
+                    (conv.messages[0].content.length > 100 ? "..." : ""),
+                  timestamp: conv.messages[0].timestamp,
+                  role: conv.messages[0].role,
+                }
+              : null,
+          })),
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
+          },
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to get conversations:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get conversations",
+      });
+    }
   }
-});
+);
 
 // Get specific conversation
-router.get('/:conversationId', async (req: Request, res: Response) => {
+router.get("/:conversationId", async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user!.id;
@@ -87,7 +95,7 @@ router.get('/:conversationId', async (req: Request, res: Response) => {
       },
       include: {
         messages: {
-          orderBy: { timestamp: 'asc' },
+          orderBy: { timestamp: "asc" },
         },
       },
     });
@@ -95,7 +103,7 @@ router.get('/:conversationId', async (req: Request, res: Response) => {
     if (!conversation) {
       return res.status(404).json({
         success: false,
-        message: 'Conversation not found',
+        message: "Conversation not found",
       });
     }
 
@@ -108,7 +116,7 @@ router.get('/:conversationId', async (req: Request, res: Response) => {
           createdAt: conversation.createdAt,
           updatedAt: conversation.updatedAt,
         },
-        messages: conversation.messages.map(msg => ({
+        messages: conversation.messages.map((msg) => ({
           id: msg.id,
           content: msg.content,
           role: msg.role,
@@ -117,16 +125,16 @@ router.get('/:conversationId', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to get conversation:', error);
+    logger.error("Failed to get conversation:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to get conversation',
+      message: "Failed to get conversation",
     });
   }
 });
 
 // Delete conversation
-router.delete('/:conversationId', async (req: Request, res: Response) => {
+router.delete("/:conversationId", async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user!.id;
@@ -141,7 +149,7 @@ router.delete('/:conversationId', async (req: Request, res: Response) => {
     if (!conversation) {
       return res.status(404).json({
         success: false,
-        message: 'Conversation not found',
+        message: "Conversation not found",
       });
     }
 
@@ -151,7 +159,7 @@ router.delete('/:conversationId', async (req: Request, res: Response) => {
       data: { isActive: false },
     });
 
-    logger.info('Conversation deleted', {
+    logger.info("Conversation deleted", {
       userId,
       conversationId,
       correlationId: req.correlationId,
@@ -159,19 +167,19 @@ router.delete('/:conversationId', async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: 'Conversation deleted successfully',
+      message: "Conversation deleted successfully",
     });
   } catch (error) {
-    logger.error('Failed to delete conversation:', error);
+    logger.error("Failed to delete conversation:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to delete conversation',
+      message: "Failed to delete conversation",
     });
   }
 });
 
 // Update conversation title
-router.patch('/:conversationId', async (req: Request, res: Response) => {
+router.patch("/:conversationId", async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
     const { title } = req.body;
@@ -180,7 +188,7 @@ router.patch('/:conversationId', async (req: Request, res: Response) => {
     if (!title || title.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Title is required',
+        message: "Title is required",
       });
     }
 
@@ -194,7 +202,7 @@ router.patch('/:conversationId', async (req: Request, res: Response) => {
     if (!conversation) {
       return res.status(404).json({
         success: false,
-        message: 'Conversation not found',
+        message: "Conversation not found",
       });
     }
 
@@ -203,7 +211,7 @@ router.patch('/:conversationId', async (req: Request, res: Response) => {
       data: { title: title.trim() },
     });
 
-   return res.json({
+    return res.json({
       success: true,
       data: {
         conversation: {
@@ -214,10 +222,10 @@ router.patch('/:conversationId', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to update conversation:', error);
+    logger.error("Failed to update conversation:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update conversation',
+      message: "Failed to update conversation",
     });
   }
 });
