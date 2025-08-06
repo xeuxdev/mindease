@@ -19,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form";
+import type { Route } from "./+types/login";
 
 // Login schema moved from types.ts
 const LoginSchema = z.object({
@@ -27,6 +28,13 @@ const LoginSchema = z.object({
 });
 
 type LoginPayload = z.infer<typeof LoginSchema>;
+
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "MindEase | Login" },
+    { name: "description", content: "Login to your MindEase account" },
+  ];
+}
 
 export default function LoginPage() {
   const loginMutation = useLogin();

@@ -23,9 +23,8 @@ export function useLogin() {
     },
 
     onSuccess(data) {
-      showSuccessToast(data.message);
-
       navigate("/");
+      showSuccessToast(data.message);
     },
 
     onError(error) {
@@ -47,9 +46,8 @@ export function useRegister() {
     },
 
     onSuccess(data) {
-      showSuccessToast(data.message);
-
       navigate("/auth/login");
+      showSuccessToast(data.message);
     },
 
     onError(error) {
@@ -59,6 +57,8 @@ export function useRegister() {
 }
 
 export function useAnonymousLogin() {
+  const navigate = useNavigate();
+
   return useMutation({
     mutationFn: async () => {
       const response = await postRequest<LoginResponse, {}>({
@@ -69,6 +69,7 @@ export function useAnonymousLogin() {
     },
 
     onSuccess(data) {
+      navigate("/");
       showSuccessToast(data.message);
     },
 

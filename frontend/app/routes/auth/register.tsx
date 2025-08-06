@@ -19,6 +19,7 @@ import {
   FormMessage,
 } from "~/components/ui/form";
 import { Input } from "~/components/ui/input";
+import type { Route } from "./+types/register";
 
 // Login schema moved from types.ts
 export const RegisterSchema = z
@@ -35,6 +36,13 @@ export const RegisterSchema = z
   });
 
 type RegisterPayload = z.infer<typeof RegisterSchema>;
+
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "MindEase | Register" },
+    { name: "description", content: "Register for a MindEase account" },
+  ];
+}
 
 export default function RegisterPage() {
   const registerMutation = useRegister();

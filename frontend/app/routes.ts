@@ -7,7 +7,10 @@ import {
 
 export default [
   // App routes (protected)
-  layout("routes/app/layout.tsx", [route("/", "routes/app/home.tsx")]),
+  layout("routes/app/layout.tsx", [
+    route("/", "routes/app/home.tsx"),
+    route("/chat", "routes/app/chat.tsx"),
+  ]),
 
   // Auth routes
   layout("routes/auth/layout.tsx", [
