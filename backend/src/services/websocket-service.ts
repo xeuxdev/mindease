@@ -171,7 +171,7 @@ export function setupWebSocket(io: SocketIOServer) {
         // Generate AI response
         const aiResponse = await aiService.generateResponse(
           message,
-          conversation.messages as any
+          conversation.messages
         );
 
         // Save AI message

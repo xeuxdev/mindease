@@ -11,6 +11,31 @@ interface AIResponse {
   model: string;
 }
 
+interface AiAPIResponse {
+  id: string;
+  object: "chat.completion";
+  created: number;
+  model: string;
+  choices: [
+    {
+      index: number;
+      logprobs: null;
+      finish_reason: "stop" | "length";
+      message: {
+        role: "assistant";
+        content: `"<think>\n\n</think>\n\n${string}`;
+      };
+    }
+  ];
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  stats: {};
+  system_fingerprint: "qwen/qwen3-4b";
+}
+
 interface Message {
   id: string;
   content: string;
@@ -42,8 +67,8 @@ class AIService {
         conversationHistory
       );
 
-      // Make API call to OpenAI
-      const response = await axios.post(
+      // Make API call to LLM
+      const response = await axios.post<AiAPIResponse>(
         `${this.baseURL}/chat/completions`,
         {
           model: this.model,
@@ -63,9 +88,13 @@ class AIService {
       );
 
       const responseTime = Date.now() - startTime;
-      const content =
-        response.data.choices[0]?.message?.content ||
+
+      let content =
+        response.data.choices[0]?.message?.content
+          .replace(/<think>[\s\S]*?<\/think>/g, "")
+          .trim() ||
         "I apologize, but I couldn't generate a response. Please try again.";
+
       const tokens = response.data.usage?.total_tokens || 0;
       const cost = this.calculateCost(tokens);
 
@@ -234,6 +263,12 @@ Remember: You are here to listen, support, and guide, not to diagnose or provide
     messages.push({
       role: "user",
       content: userMessage,
+    });
+
+    // to disable thinking
+    messages.push({
+      role: "user",
+      content: "/no_think",
     });
 
     return messages;
