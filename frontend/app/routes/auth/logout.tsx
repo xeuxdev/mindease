@@ -4,6 +4,7 @@ import type { Route } from "./+types/logout";
 import { postRequest } from "~/lib/http";
 import type { LogoutResponse } from "~/api/types";
 import { API_ENDPOINTS } from "~/lib/api-endpoints";
+import { cookieNames } from "~/config/site";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const cookieHeader = request.headers.get("Cookie");
@@ -15,22 +16,35 @@ export async function loader({ request }: Route.LoaderArgs) {
   //   return redirect("/");
   // }
 
-  console.log(cookie);
-
-  console.log("logout request received");
-
   // await logoutUser().then(() => {
   //   return redirect("/");
   // });
 
-  await fetch(`${import.meta.env.API_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
-    method: "POST",
+  const req = await fetch(
+    `${import.meta.env.VITE_API_URL}${API_ENDPOINTS.AUTH.LOGOUT}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  const res = await req.json();
+
+  return redirect("/", {
     headers: {
-      "Content-Type": "application/json",
+      "Set-Cookie": [
+        cookieNames.session_token +
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+        cookieNames.hashedId +
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+        cookieNames.email +
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+        cookieNames.anonymous +
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+      ].join(", "),
     },
   });
-
-  console.log("skipped");
 }
 
 export default function LogoutPage() {
