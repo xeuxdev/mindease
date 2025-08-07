@@ -17,8 +17,8 @@ router.get("/profile", async (req: Request, res: Response) => {
         email: true,
         isAnonymous: true,
         hashedId: true,
-        createdAt: true,
-        updatedAt: true,
+        // createdAt: true,
+        // updatedAt: true,
       },
     });
 

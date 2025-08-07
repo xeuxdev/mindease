@@ -4,11 +4,10 @@ import React, {
   type SetStateAction,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from "react";
-import { useWhoAmI } from "~/api/user";
 import type { User } from "~/api/types";
+import { useWhoAmI } from "~/api/user";
 
 interface UserContextTypes {
   user: User | null;
@@ -24,22 +23,13 @@ const UserContext = createContext<UserContextTypes>({
 
 const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [User, setUser] = useState<User | null>(null);
-
-  const { data, isLoading } = useWhoAmI();
-
-  const userData = useMemo(() => {
-    if (!data?.data.user) return null;
-
-    return {
-      ...data.data.user,
-    };
-  }, [data]);
+  const { data, isLoading, error } = useWhoAmI();
 
   useEffect(() => {
-    if (userData) {
-      setUser(userData);
+    if (data?.data.user) {
+      setUser(data?.data.user);
     }
-  }, [userData]);
+  }, [data, error]);
 
   return (
     <UserContext.Provider value={{ user: User, setUser, isLoading }}>

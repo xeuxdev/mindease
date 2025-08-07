@@ -1,23 +1,22 @@
-import { Navigate, Outlet } from "react-router";
-import { AuthLoading } from "~/components/ui/loaders";
-import { useUser } from "~/context/user-context";
+import { Outlet, redirect } from "react-router";
+import { cookieNames } from "~/config/site";
+import type { Route } from "./+types/layout";
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const cookieHeader = request.headers.get("Cookie");
+  const cookie = Object.fromEntries(
+    cookieHeader?.split("; ").map((c) => c.split("=")) || []
+  );
+
+  if (!cookie[cookieNames.session_token] || !cookie[cookieNames.hashedId]) {
+    return redirect("/auth/login");
+  }
+}
 
 export default function AppLayout() {
-  const { user, isLoading } = useUser();
-
-  if (isLoading) {
-    return <AuthLoading />;
-  }
-
-  if (!isLoading && !user) {
-    return <Navigate to="/auth/login" replace />;
-  }
-
   return (
-    <>
-      <div className="min-h-screen bg-gray-50">
-        <Outlet />
-      </div>
-    </>
+    <div className="min-h-screen">
+      <Outlet />
+    </div>
   );
 }

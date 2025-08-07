@@ -1,17 +1,20 @@
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import { API_ENDPOINTS } from "~/lib/api-endpoints";
 import { postRequest } from "~/lib/http";
 import { displayErrorMessage, showSuccessToast } from "~/lib/utils";
+import { useUser } from "~/context/user-context";
 import type {
   LoginPayload,
   LoginResponse,
+  LogoutResponse,
   RegisterPayload,
   RegisterResponse,
 } from "./types";
-import { useNavigate } from "react-router";
 
 export function useLogin() {
   const navigate = useNavigate();
+  const { setUser } = useUser();
 
   return useMutation({
     mutationFn: async (payload: LoginPayload) => {
@@ -23,7 +26,10 @@ export function useLogin() {
     },
 
     onSuccess(data) {
-      navigate("/");
+      setUser(data.data.user);
+      navigate("/", {
+        replace: true,
+      });
       showSuccessToast(data.message);
     },
 
@@ -82,19 +88,32 @@ export function useAnonymousLogin() {
 // Logout function
 
 export const logoutUser = async () => {
-  await postRequest({
+  return postRequest<LogoutResponse, any>({
     url: API_ENDPOINTS.AUTH.LOGOUT,
     payload: {},
   });
 };
 
 export function useLogout() {
-  const { mutateAsync: logoutUser, isPending: isLoggingOut } = useMutation({
+  const navigate = useNavigate();
+  const { setUser } = useUser();
+
+  const { mutate: logoutUser, isPending: isLoggingOut } = useMutation({
     mutationFn: async () => {
-      return postRequest({
+      return postRequest<LogoutResponse, any>({
         url: API_ENDPOINTS.AUTH.LOGOUT,
         payload: {},
       });
+    },
+    onSuccess() {
+      setUser(null);
+      showSuccessToast("Logged out successfully");
+      navigate("/auth/login", { replace: true });
+    },
+    onError(error) {
+      setUser(null);
+      displayErrorMessage(error);
+      navigate("/auth/login", { replace: true });
     },
   });
 

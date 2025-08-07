@@ -12,6 +12,13 @@ export const API_ENDPOINTS = {
     STATS: "/users/stats",
     DELETE: "/users/account",
   },
+  CONVERSATIONS: {
+    GET_ALL: (page: number, limit?: number) =>
+      `/conversations?page=${page}${limit ? `&limit=${limit}` : ""}`,
+    GET_BY_ID: (id: string) => `/conversations/${id}`,
+    DELETE: (id: string) => `/conversations/${id}`,
+    UPDATE_TITLE: (id: string) => `/conversations/${id}`,
+  },
 
   HEALTH: {
     BASE: "/health",

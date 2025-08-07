@@ -1,21 +1,27 @@
 import { GalleryVerticalEnd } from "lucide-react";
-import { Navigate, Outlet } from "react-router";
-import { AuthLoading } from "~/components/ui/loaders";
-import { useUser } from "~/context/user-context";
+import { Outlet, redirect } from "react-router";
+import { cookieNames } from "~/config/site";
+import type { Route } from "./+types/layout";
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const cookieHeader = request.headers.get("Cookie");
+  const cookie = Object.fromEntries(
+    cookieHeader?.split("; ").map((c) => c.split("=")) || []
+  );
+
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  if (path === "/auth/logout") {
+    return null;
+  }
+
+  if (cookie[cookieNames.session_token] && cookie[cookieNames.hashedId]) {
+    return redirect("/");
+  }
+}
 
 export default function AuthLayout() {
-  const { user, isLoading } = useUser();
-
-  console.log(user, isLoading);
-
-  if (isLoading) {
-    return <AuthLoading />;
-  }
-
-  if (!isLoading && user) {
-    return <Navigate to="/" replace />;
-  }
-
   return (
     <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">

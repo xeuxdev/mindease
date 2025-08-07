@@ -54,7 +54,7 @@ export const putRequest = async <T, P>(params: { url: string; payload: P }) => {
   return data;
 };
 
-export const deleteRequest = async <T, P>(params: { url: string }) => {
+export const deleteRequest = async <T>(params: { url: string }) => {
   const { data } = await api.delete<T>(params.url);
 
   return data;

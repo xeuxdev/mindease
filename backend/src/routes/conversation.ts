@@ -213,6 +213,7 @@ router.patch("/:conversationId", async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
+      message: "Conversation updated successfully",
       data: {
         conversation: {
           id: updatedConversation.id,

@@ -35,6 +35,11 @@ export type RegisterResponse = {
   };
 };
 
+export type LogoutResponse = {
+  success: true;
+  message: "Logout successful";
+};
+
 export type WhoAmIResponse = {
   success: boolean;
   data: {
@@ -43,10 +48,73 @@ export type WhoAmIResponse = {
       email: string;
       isAnonymous: boolean;
       hashedId: string;
-      createdAt: string;
-      updatedAt: string;
+      // createdAt: string;
+      // updatedAt: string;
     };
   };
 };
 
 export type User = WhoAmIResponse["data"]["user"];
+
+export type ConversationsResponse = {
+  success: true;
+  data: {
+    conversations: {
+      id: string;
+      title: string;
+      createdAt: string;
+      updatedAt: string;
+      messageCount: number;
+      lastMessage: {
+        content: string;
+        timestamp: string;
+        role: "ASSISTANT" | "USER";
+      };
+    }[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+  };
+};
+
+export type GetConversationResponse = {
+  success: true;
+  data: {
+    conversation: {
+      id: string;
+      title: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+    messages: {
+      id: string;
+      content: string;
+      role: "ASSISTANT" | "USER";
+      timestamp: string;
+    }[];
+  };
+};
+
+export type EditConversationPayload = {
+  title: string;
+};
+
+export type EditConversationResponse = {
+  success: true;
+  message: string;
+  data: {
+    conversation: {
+      id: string;
+      title: string;
+      updatedAt: string;
+    };
+  };
+};
+
+export type DeleteConversationResponse = {
+  success: true;
+  message: string;
+};
