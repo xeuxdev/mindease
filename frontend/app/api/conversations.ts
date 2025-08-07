@@ -1,4 +1,9 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_ENDPOINTS } from "~/lib/api-endpoints";
 import { deleteRequest, getRequest, patchRequest } from "~/lib/http";
 import type {
@@ -11,13 +16,22 @@ import type {
 import { displayErrorMessage, showSuccessToast } from "~/lib/utils";
 import { useNavigate } from "react-router";
 
-export function useGetConversations(page: number, limit?: number) {
-  return useQuery({
-    queryKey: ["conversations", page, limit],
-    queryFn: () =>
+export function useGetConversations(limit: number = 20) {
+  return useInfiniteQuery({
+    queryKey: ["conversations", limit],
+    queryFn: ({ pageParam = 1 }) =>
       getRequest<ConversationsResponse>({
-        url: API_ENDPOINTS.CONVERSATIONS.GET_ALL(page, limit),
+        url: API_ENDPOINTS.CONVERSATIONS.GET_ALL(pageParam, limit),
       }),
+    getNextPageParam: (lastPage) => {
+      const {
+        data: { pagination },
+      } = lastPage;
+      return pagination.page < pagination.pages
+        ? pagination.page + 1
+        : undefined;
+    },
+    initialPageParam: 1,
   });
 }
 
@@ -33,19 +47,29 @@ export function useGetConversationById(id: string) {
 }
 
 export function useEditConversationTitle() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) =>
       patchRequest<EditConversationResponse, EditConversationPayload>({
         url: API_ENDPOINTS.CONVERSATIONS.UPDATE_TITLE(id),
         payload: { title: title },
       }),
+
     onSuccess({ data }) {
       showSuccessToast(data.message);
+
+      queryClient.invalidateQueries({
+        queryKey: ["conversations", 20],
+      });
     },
+    mutationKey: ["edit-conversation"],
   });
 }
 
 export function useDeleteConversation() {
+  const queryClient = useQueryClient();
+
   const navigate = useNavigate();
 
   return useMutation({
@@ -57,6 +81,10 @@ export function useDeleteConversation() {
 
     onSuccess(data) {
       showSuccessToast(data.message);
+
+      queryClient.invalidateQueries({
+        queryKey: ["conversations", 20],
+      });
 
       navigate("/", { replace: true });
     },

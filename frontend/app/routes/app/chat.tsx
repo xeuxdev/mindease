@@ -31,6 +31,10 @@ export default function ChatPage() {
     id: string;
     title: string;
   } | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
+    null
+  );
+  const [isAIResponding, setIsAIResponding] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -41,6 +45,13 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load conversations when connected
+  useEffect(() => {
+    if (isConnected && socket) {
+      getConversations();
+    }
+  }, [isConnected, socket]);
 
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_SOCKET_URL || "ws://localhost:3001";
@@ -76,101 +87,61 @@ export default function ChatPage() {
       setIsConnected(false);
     });
 
-    // Chat message handlers
-    newSocket.on("chat_message", (data) => {
-      console.log("Received message:", data);
-
-      // Handle the new AI response format
-      if (data.conversation && data.message) {
-        // Update conversation info
-        setCurrentConversation(data.conversation);
-
-        // Create message from AI response
-        const newMessage: Message = {
-          id: data.message.id || Date.now().toString(),
-          text: data.message.content || "",
-          sender: data.message.role === "ASSISTANT" ? "AI Assistant" : "User",
-          timestamp: new Date(data.message.timestamp || Date.now()),
-          isOwnMessage: data.message.role === "USER",
-          role: data.message.role,
-          isStreaming: false,
-        };
-
-        setMessages((prev) => {
-          // Check if message already exists (to avoid duplicates)
-          const existingMessage = prev.find((msg) => msg.id === newMessage.id);
-          if (existingMessage) {
-            // Update existing message content (for streaming)
-            return prev.map((msg) =>
-              msg.id === newMessage.id
-                ? { ...msg, text: newMessage.text, isStreaming: false }
-                : msg
-            );
-          }
-          return [...prev, newMessage];
-        });
-      } else {
-        // Handle legacy format or any other format
-        const newMessage: Message = {
-          id: data.id || Date.now().toString(),
-          text:
-            data.message || data.text || data.content || JSON.stringify(data),
-          sender: data.sender || data.user || "AI Assistant",
-          timestamp: new Date(data.timestamp || Date.now()),
-          isOwnMessage: false,
-        };
-        setMessages((prev) => [...prev, newMessage]);
-      }
+    // Message saved confirmation
+    newSocket.on("message_saved", (data) => {
+      console.log("Message saved:", data);
+      // Optionally update message status or add confirmation
     });
 
-    // Also listen for any AI response events
-    newSocket.on("ai_response", (data) => {
-      console.log("Received AI response:", data);
-
-      if (data.conversation && data.message) {
-        setCurrentConversation(data.conversation);
-
-        const newMessage: Message = {
-          id: data.message.id || Date.now().toString(),
-          text: data.message.content || "",
-          sender: "AI Assistant",
-          timestamp: new Date(data.message.timestamp || Date.now()),
-          isOwnMessage: false,
-          role: "ASSISTANT",
-          isStreaming: false,
-        };
-
-        setMessages((prev) => [...prev, newMessage]);
-      }
+    // AI typing indicator
+    newSocket.on("ai_typing", (data) => {
+      console.log("AI is typing:", data);
+      setIsAIResponding(true);
     });
 
-    // Handle streaming messages (partial content)
-    newSocket.on("message_stream", (data) => {
-      console.log("Received stream:", data);
+    // AI streaming chunks
+    newSocket.on("ai_chunk", (data) => {
+      console.log("Received AI chunk:", data);
 
-      if (data.conversation && data.message) {
-        setCurrentConversation(data.conversation);
+      if (data.conversationId && data.content !== undefined) {
+        // Update current conversation if provided
+        if (data.conversationId && !currentConversation) {
+          setCurrentConversation({
+            id: data.conversationId,
+            title: `Conversation ${data.conversationId.slice(-8)}`,
+          });
+        }
 
-        const messageId = data.message.id;
-        const content = data.message.content || "";
+        // Generate a consistent message ID based on conversation
+        const messageId = `ai_response_${data.conversationId}_${Date.now()}`;
 
         setMessages((prev) => {
-          const existingMessage = prev.find((msg) => msg.id === messageId);
+          // Find existing streaming message for this conversation
+          const existingStreamingMessage = prev.find(
+            (msg) =>
+              msg.role === "ASSISTANT" &&
+              msg.isStreaming &&
+              msg.id.includes(data.conversationId)
+          );
 
-          if (existingMessage) {
-            // Update existing streaming message
+          if (existingStreamingMessage) {
+            // Update existing streaming message with new content
             return prev.map((msg) =>
-              msg.id === messageId
-                ? { ...msg, text: content, isStreaming: true }
+              msg.id === existingStreamingMessage.id
+                ? {
+                    ...msg,
+                    text: data.fullContent || msg.text + data.content,
+                    isStreaming: true,
+                  }
                 : msg
             );
           } else {
             // Create new streaming message
             const newMessage: Message = {
               id: messageId,
-              text: content,
+              text: data.fullContent || data.content,
               sender: "AI Assistant",
-              timestamp: new Date(data.message.timestamp || Date.now()),
+              timestamp: new Date(),
               isOwnMessage: false,
               role: "ASSISTANT",
               isStreaming: true,
@@ -181,30 +152,64 @@ export default function ChatPage() {
       }
     });
 
-    // Handle stream completion
-    newSocket.on("message_complete", (data) => {
-      console.log("Stream complete:", data);
+    // AI stopped typing
+    newSocket.on("ai_stopped_typing", (data) => {
+      console.log("AI stopped typing:", data);
+      setIsAIResponding(false);
+    });
 
-      if (data.message && data.message.id) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === data.message.id ? { ...msg, isStreaming: false } : msg
-          )
-        );
-      }
+    // AI response complete
+    newSocket.on("ai_response_complete", (data) => {
+      console.log("AI response complete:", data);
+      setIsAIResponding(false);
+      setStreamingMessageId(null);
+
+      // Mark all streaming messages as complete
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isStreaming && msg.role === "ASSISTANT"
+            ? { ...msg, isStreaming: false }
+            : msg
+        )
+      );
     });
 
     // Error handling
     newSocket.on("error", (error) => {
       console.error("Socket error:", error);
       setConnectionError(`Error: ${error.message || error}`);
+      setIsAIResponding(false);
+      setStreamingMessageId(null);
     });
 
-    // Typing indicators
-    newSocket.on("typing", (data) => {
+    // Get conversations list
+    newSocket.on("conversations_list", (data) => {
+      console.log("Received conversations list:", data);
+      // Handle conversations list if needed
+    });
+
+    // Get conversation messages
+    newSocket.on("conversation_messages", (data) => {
+      console.log("Received conversation messages:", data);
+      if (data.messages && Array.isArray(data.messages)) {
+        const formattedMessages: Message[] = data.messages.map((msg: any) => ({
+          id: msg.id || Date.now().toString(),
+          text: msg.content || msg.message || "",
+          sender: msg.role === "ASSISTANT" ? "AI Assistant" : "You",
+          timestamp: new Date(msg.timestamp || msg.createdAt || Date.now()),
+          isOwnMessage: msg.role === "USER",
+          role: msg.role,
+          isStreaming: false,
+        }));
+        setMessages(formattedMessages);
+      }
+    });
+
+    // User typing indicators (for other users)
+    newSocket.on("user_typing", (data) => {
       console.log("User typing:", data);
-      const userId = data.userId || data.user || data.id;
-      const userName = data.userName || data.name || userId;
+      const userId = data.userId || data.user || data.id || "unknown";
+      const userName = data.userName || data.name || `User ${userId}`;
 
       setTypingUsers((prev) => {
         const existingUser = prev.find((user) => user.id === userId);
@@ -218,10 +223,10 @@ export default function ChatPage() {
       });
     });
 
-    newSocket.on("stop_typing", (data) => {
+    // User stopped typing
+    newSocket.on("user_stopped_typing", (data) => {
       console.log("User stopped typing:", data);
-      const userId = data.userId || data.user || data.id;
-
+      const userId = data.userId || data.user || data.id || "unknown";
       setTypingUsers((prev) => prev.filter((user) => user.id !== userId));
     });
 
@@ -236,6 +241,9 @@ export default function ChatPage() {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      // Clear streaming state on cleanup
+      setIsAIResponding(false);
+      setStreamingMessageId(null);
       newSocket.close();
     };
   }, []);
@@ -255,27 +263,30 @@ export default function ChatPage() {
     // Add message to local state immediately
     setMessages((prev) => [...prev, message]);
 
-    // Send to server in the expected format
+    // Send to server in the expected format (according to backend reference)
     socket.emit("chat_message", {
       message: inputValue.trim(),
-      timestamp: Date.now(),
-      sender: "You",
       conversationId: currentConversation?.id,
     });
 
     setInputValue("");
     handleStopTyping();
+
+    // Set AI responding state
+    setIsAIResponding(true);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
 
-    if (!socket) return;
+    if (!socket || !currentConversation?.id) return;
 
-    // Send typing indicator
+    // Send typing indicator (according to backend reference)
     if (!isTyping) {
       setIsTyping(true);
-      socket.emit("typing", { userId: "current_user", userName: "You" });
+      socket.emit("typing", {
+        conversationId: currentConversation.id,
+      });
     }
 
     // Clear existing timeout
@@ -290,9 +301,11 @@ export default function ChatPage() {
   };
 
   const handleStopTyping = () => {
-    if (socket && isTyping) {
+    if (socket && isTyping && currentConversation?.id) {
       setIsTyping(false);
-      socket.emit("stop_typing", { userId: "current_user" });
+      socket.emit("stop_typing", {
+        conversationId: currentConversation.id,
+      });
     }
   };
 
@@ -309,6 +322,22 @@ export default function ChatPage() {
   const reconnect = () => {
     if (socket) {
       socket.connect();
+    }
+  };
+
+  const getConversations = () => {
+    if (socket) {
+      socket.emit("get_conversations");
+    }
+  };
+
+  const loadConversation = (conversationId: string) => {
+    if (socket) {
+      socket.emit("get_conversation", { conversationId });
+      setCurrentConversation({
+        id: conversationId,
+        title: `Conversation ${conversationId.slice(-8)}`,
+      });
     }
   };
 
@@ -386,15 +415,23 @@ export default function ChatPage() {
                     {formatTime(message.timestamp)}
                   </span>
                   {message.isStreaming && (
-                    <span className="text-xs text-yellow-600">●</span>
+                    <span className="text-xs text-yellow-600">● streaming</span>
                   )}
                 </div>
                 <p className="text-sm whitespace-pre-wrap">
                   {message.text || "No content"}
                 </p>
                 {message.isStreaming && (
-                  <div className="mt-1">
-                    <div className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                  <div className="mt-1 flex items-center gap-1">
+                    <div className="w-1 h-1 bg-current rounded-full animate-pulse"></div>
+                    <div
+                      className="w-1 h-1 bg-current rounded-full animate-pulse"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                    <div
+                      className="w-1 h-1 bg-current rounded-full animate-pulse"
+                      style={{ animationDelay: "0.4s" }}
+                    ></div>
                   </div>
                 )}
               </div>
@@ -410,6 +447,31 @@ export default function ChatPage() {
                 {typingUsers.map((user) => user.name).join(", ")}
                 {typingUsers.length === 1 ? " is" : " are"} typing...
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* AI responding indicator */}
+        {isAIResponding && (
+          <div className="flex justify-start">
+            <div className="bg-blue-100 px-4 py-2 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  <div
+                    className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  ></div>
+                </div>
+                <p className="text-sm text-blue-700">AI is thinking...</p>
+              </div>
             </div>
           </div>
         )}
@@ -430,15 +492,32 @@ export default function ChatPage() {
           />
           <Button
             onClick={handleSendMessage}
-            disabled={!isConnected || !inputValue.trim()}
+            disabled={!isConnected || !inputValue.trim() || isAIResponding}
           >
-            Send
+            {isAIResponding ? "..." : "Send"}
           </Button>
         </div>
 
         {!isConnected && (
           <p className="text-sm text-gray-500 mt-2">
             You must be connected to send messages
+          </p>
+        )}
+
+        {isAIResponding && (
+          <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+            <span>AI is generating response...</span>
+            <div className="flex gap-1">
+              <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
+              <div
+                className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"
+                style={{ animationDelay: "0.1s" }}
+              ></div>
+              <div
+                className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"
+                style={{ animationDelay: "0.2s" }}
+              ></div>
+            </div>
           </p>
         )}
       </div>

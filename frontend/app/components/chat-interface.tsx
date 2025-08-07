@@ -1,233 +1,57 @@
-"use client";
-
 import * as React from "react";
-import { Send, User, Bot, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { Textarea } from "~/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { ScrollArea } from "~/components/ui/scroll-area";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
-
-const initialMessages: Message[] = [
-  {
-    id: "1",
-    role: "assistant",
-    content: "Hello! I'm your AI assistant. How can I help you today?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: "2",
-    role: "user",
-    content: "What are the best practices for React development?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 4),
-  },
-  {
-    id: "3",
-    role: "assistant",
-    content:
-      "Here are some key React best practices:\n\n1. **Use Functional Components and Hooks**: Modern React development favors functional components with hooks over class components.\n\n2. **Keep Components Small and Focused**: Each component should have a single responsibility.\n\n3. **Use TypeScript**: TypeScript provides better type safety and developer experience.\n\n4. **Implement Proper State Management**: Use useState for local state, useContext for shared state, or external libraries like Redux for complex state.\n\n5. **Optimize Performance**: Use React.memo, useMemo, and useCallback to prevent unnecessary re-renders.\n\n6. **Follow Naming Conventions**: Use PascalCase for components and camelCase for functions and variables.\n\nWould you like me to elaborate on any of these points?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 3),
-  },
-];
+import { ChatInput } from "./chat/chat-input";
+import { ChatMessages } from "./chat/chat-messages";
 
 export function ChatInterface() {
-  const [messages, setMessages] = React.useState<Message[]>(initialMessages);
-  const [input, setInput] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
-  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector(
-        "[data-radix-scroll-area-viewport]"
-      );
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
-    }
-  };
-
-  React.useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    // Simulate AI response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content:
-          "I understand your question. This is a simulated response. In a real implementation, this would be connected to an AI service to provide actual responses based on your input.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1000);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const copyToClipboard = (content: string) => {
-    navigator.clipboard.writeText(content);
+  const handleSend = async (input: string) => {
+    if (!input.trim()) return;
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages area with fixed scroll */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea ref={scrollAreaRef} className="h-full">
-          <div className="space-y-6 max-w-4xl mx-auto p-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-4 ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          <div className="mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                {message.role === "assistant" && (
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-
-                <div
-                  className={`flex flex-col gap-2 max-w-[80%] ${
-                    message.role === "user" ? "items-end" : "items-start"
-                  }`}
-                >
-                  <div
-                    className={`rounded-lg px-4 py-3 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground ml-auto"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {message.content}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{message.timestamp.toLocaleTimeString()}</span>
-                    {message.role === "assistant" && (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => copyToClipboard(message.content)}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                        >
-                          <ThumbsUp className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                        >
-                          <ThumbsDown className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {message.role === "user" && (
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback>
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex gap-4 justify-start">
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="bg-muted rounded-lg px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                    <div
-                      className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">
+              Start a conversation
+            </h2>
+            <p className="text-gray-600">How can I help you today?</p>
           </div>
-        </ScrollArea>
-      </div>
-
-      {/* Fixed input area */}
-
-      <div className="max-w-3xl mx-auto w-full">
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message here..."
-              className="min-h-[60px] resize-none pr-12 max-h-32"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              size="sm"
-              className="absolute right-2 bottom-2 h-8 w-8 p-0"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="space-y-2">
+            <div className="text-sm text-gray-500">Try asking about:</div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                Mental health tips
+              </span>
+              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                Stress management
+              </span>
+              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                Mindfulness
+              </span>
+            </div>
           </div>
         </div>
-        <div className="text-xs text-muted-foreground mt-2 text-center">
-          Press Enter to send, Shift + Enter for new line
-        </div>
       </div>
+
+      <ChatInput isLoading={isLoading} onSend={handleSend} />
     </div>
   );
 }

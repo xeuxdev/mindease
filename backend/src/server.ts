@@ -1,37 +1,36 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
-import rateLimit from "express-rate-limit";
-import { Server } from "socket.io";
-import { createServer } from "http";
 import cookieParser from "cookie-parser";
+import cors from "cors";
+import express from "express";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 // Import environment configuration (must be first)
 import {
   env,
-  validateFeatureRequirements,
-  serverConfig,
-  rateLimitConfig,
   jwtConfig,
+  rateLimitConfig,
+  serverConfig,
+  validateFeatureRequirements,
 } from "./config/env";
 
 // Import middleware
+import { authMiddleware } from "./middleware/auth-middleware";
 import { errorHandler } from "./middleware/error-handler";
 import { requestLogger } from "./middleware/request-logger";
-import { authMiddleware } from "./middleware/auth-middleware";
 
 // Import routes
-import healthRoutes from "./routes/health";
 import authRoutes from "./routes/auth";
-import chatRoutes from "./routes/chat";
 import conversationRoutes from "./routes/conversation";
+import healthRoutes from "./routes/health";
 import userRoutes from "./routes/user";
 // import adminRoutes from "./routes/admin";
 
 // Import services
-import { logger } from "./utils/logger";
 import { connectDatabase } from "./config/database";
 import { setupWebSocket } from "./services/websocket-service";
+import { logger } from "./utils/logger";
 
 const app = express();
 const server = createServer(app);
@@ -73,7 +72,6 @@ app.use(requestLogger);
 // Routes
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/chat", authMiddleware, chatRoutes);
 app.use("/api/conversations", authMiddleware, conversationRoutes);
 app.use("/api/users", authMiddleware, userRoutes);
 // app.use("/api/admin", authMiddleware, adminRoutes);

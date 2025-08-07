@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Request, Response, Router } from "express";
 import { query } from "express-validator";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";

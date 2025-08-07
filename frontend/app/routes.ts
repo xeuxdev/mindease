@@ -5,6 +5,7 @@ export default [
   layout("routes/app/layout.tsx", [
     route("/", "routes/app/home.tsx"),
     route("/chat", "routes/app/chat.tsx"),
+    route("/c/:id", "routes/app/chat/conversation.tsx"),
   ]),
 
   // Auth routes

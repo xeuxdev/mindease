@@ -91,8 +91,15 @@ class AIService {
 
       let content =
         response.data.choices[0]?.message?.content
-          .replace(/<think>[\s\S]*?<\/think>/g, "")
-          .trim() ||
+          // Remove complete think blocks
+          ?.replace(/<think>[\s\S]*?<\/think>/g, "")
+          // Remove unclosed think tags and everything after them
+          ?.replace(/<think>[\s\S]*$/g, "")
+          // Remove any remaining think closing tags
+          ?.replace(/<\/think>/g, "")
+          // Remove leading newlines
+          ?.replace(/^\s*\n+/, "")
+          ?.trim() ||
         "I apologize, but I couldn't generate a response. Please try again.";
 
       const tokens = response.data.usage?.total_tokens || 0;
@@ -156,7 +163,7 @@ class AIService {
         });
 
         if (conversation) {
-          conversationHistory = conversation.messages as any[];
+          conversationHistory = conversation.messages;
         }
       }
 
@@ -186,26 +193,51 @@ class AIService {
       );
 
       let fullContent = "";
+      let lastSentLength = 0;
 
       response.data.on("data", (chunk: Buffer) => {
-        const lines = chunk.toString().split("\n");
+        const chunkStr = chunk.toString();
+        const lines = chunkStr.split("\n");
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
 
             if (data === "[DONE]") {
-              onChunk({ type: "done", content: fullContent });
+              let cleanContent = fullContent
+                .replace(/<think>[\s\S]*?<\/think>/g, "")
+                .replace(/<think>[\s\S]*$/g, "")
+                .replace(/<\/think>/g, "")
+                .replace(/^\s*\n+/, "")
+                .trim();
+              onChunk({ type: "done", content: cleanContent });
               return;
             }
 
             try {
               const parsed = JSON.parse(data);
-              const content = parsed.choices[0]?.delta?.content;
+              const deltaContent = parsed.choices[0]?.delta?.content;
 
-              if (content) {
-                fullContent += content;
-                onChunk({ type: "chunk", content });
+              if (deltaContent) {
+                // Add new content to full content
+                fullContent += deltaContent;
+
+                // Clean the accumulated content with more robust filtering
+                let cleanedContent = fullContent
+                  .replace(/<think>[\s\S]*?<\/think>/g, "")
+                  .replace(/<think>[\s\S]*$/g, "")
+                  .replace(/<\/think>/g, "")
+                  .replace(/^\s*\n+/, "")
+                  .trim();
+
+                // Only send the new part that hasn't been sent yet
+                if (cleanedContent.length > lastSentLength) {
+                  const newContent = cleanedContent.slice(lastSentLength);
+                  if (newContent) {
+                    onChunk({ type: "chunk", content: newContent });
+                    lastSentLength = cleanedContent.length;
+                  }
+                }
               }
             } catch (parseError) {
               // Ignore parse errors for partial chunks
@@ -215,7 +247,18 @@ class AIService {
       });
 
       response.data.on("end", () => {
-        onChunk({ type: "complete", content: fullContent });
+        // Final cleanup before sending complete
+        let cleanContent = fullContent
+          // Remove complete think blocks
+          .replace(/<think>[\s\S]*?<\/think>/g, "")
+          // Remove unclosed think tags and everything after them
+          .replace(/<think>[\s\S]*$/g, "")
+          // Remove any remaining think closing tags
+          .replace(/<\/think>/g, "")
+          // Remove leading whitespace and newlines
+          .replace(/^\s*\n+/, "")
+          .trim();
+        onChunk({ type: "complete", content: cleanContent });
       });
     } catch (error) {
       logger.error("AI stream response failed:", error);

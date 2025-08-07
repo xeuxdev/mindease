@@ -31,6 +31,29 @@ export function setupWebSocket(io: SocketIOServer) {
 
   console.log("Setting up WebSocket authentication middleware");
 
+  /*
+   * WebSocket Events Reference:
+   *
+   * Client to Server:
+   * - chat_message: Send a message to AI (expects: { message: string, conversationId?: string })
+   * - get_conversations: Get list of conversations
+   * - get_conversation: Get conversation messages (expects: { conversationId: string })
+   * - typing: User is typing (expects: { conversationId: string })
+   * - stop_typing: User stopped typing (expects: { conversationId: string })
+   *
+   * Server to Client:
+   * - message_saved: User message saved to database
+   * - ai_typing: AI is generating response
+   * - ai_chunk: Streaming chunk of AI response (expects: { conversationId: string, content: string, fullContent: string })
+   * - ai_stopped_typing: AI finished generating response
+   * - ai_response_complete: AI response fully generated and saved
+   * - conversations_list: List of conversations
+   * - conversation_messages: Messages in a conversation
+   * - user_typing: Another user is typing
+   * - user_stopped_typing: Another user stopped typing
+   * - error: Error occurred
+   */
+
   io.use(async (socket: AuthenticatedSocket, next) => {
     // const cookie = socket.request.headers.cookie;
     try {
@@ -88,9 +111,6 @@ export function setupWebSocket(io: SocketIOServer) {
       userId: socket.userId,
       socketId: socket.id,
     });
-
-    // Join user to their personal room
-    socket.join(`user_${socket.userId}`);
 
     // Handle chat messages
     socket.on("chat_message", async (data) => {
@@ -168,60 +188,108 @@ export function setupWebSocket(io: SocketIOServer) {
         // Start typing indicator
         socket.emit("ai_typing", { conversationId: conversation.id });
 
-        // Generate AI response
-        const aiResponse = await aiService.generateResponse(
+        const startTime = Date.now();
+        let fullContent = "";
+        let aiMessageId: string | null = null;
+
+        // Stream AI response
+        await aiService.streamResponse(
           message,
-          conversation.messages
+          conversation.id,
+          socket.userId!,
+          async (chunk) => {
+            if (chunk.type === "chunk") {
+              fullContent += chunk.content;
+
+              // Emit streaming chunk to client
+              socket.emit("ai_chunk", {
+                conversationId: conversation.id,
+                content: chunk.content,
+                fullContent: fullContent,
+              });
+            } else if (chunk.type === "done" || chunk.type === "complete") {
+              try {
+                // Stop typing indicator
+                socket.emit("ai_stopped_typing", {
+                  conversationId: conversation.id,
+                });
+
+                // Save AI message to database
+                const aiMessage = await prisma.message.create({
+                  data: {
+                    conversationId: conversation.id,
+                    content: fullContent,
+                    role: "ASSISTANT",
+                    metadata: {
+                      model: "streaming",
+                      responseTime: Date.now() - startTime,
+                    },
+                  },
+                });
+
+                aiMessageId = aiMessage.id;
+
+                // Log API usage (with estimated tokens since streaming doesn't provide exact count)
+                const estimatedTokens = Math.ceil(fullContent.length / 4);
+                await prisma.apiUsage.create({
+                  data: {
+                    userId: socket.userId!,
+                    endpoint: "websocket_chat_stream",
+                    method: "WS",
+                    tokens: estimatedTokens,
+                    cost: estimatedTokens * 0.0000015,
+                    responseTime: Date.now() - startTime,
+                  },
+                });
+
+                // Emit completion event
+                socket.emit("ai_response_complete", {
+                  conversation: {
+                    id: conversation.id,
+                    title: conversation.title,
+                  },
+                  message: {
+                    id: aiMessage.id,
+                    content: fullContent,
+                    role: aiMessage.role,
+                    timestamp: aiMessage.timestamp,
+                  },
+                });
+
+                logger.info("WebSocket streaming chat response completed", {
+                  userId: socket.userId,
+                  conversationId: conversation.id,
+                  estimatedTokens,
+                  responseTime: Date.now() - startTime,
+                  socketId: socket.id,
+                  messageLength: fullContent.length,
+                });
+              } catch (dbError) {
+                logger.error("Failed to save streamed AI message:", dbError);
+                socket.emit("error", {
+                  message: "Failed to save AI response",
+                  conversationId: conversation.id,
+                });
+              }
+            } else if (chunk.type === "error") {
+              // Stop typing indicator and emit error
+              socket.emit("ai_stopped_typing", {
+                conversationId: conversation.id,
+              });
+              socket.emit("error", {
+                message: chunk.message || "Failed to generate AI response",
+                conversationId: conversation.id,
+              });
+
+              logger.error("WebSocket AI streaming error", {
+                userId: socket.userId,
+                conversationId: conversation.id,
+                error: chunk.message,
+                socketId: socket.id,
+              });
+            }
+          }
         );
-
-        // Save AI message
-        const aiMessage = await prisma.message.create({
-          data: {
-            conversationId: conversation.id,
-            content: aiResponse.content,
-            role: "ASSISTANT",
-            metadata: {
-              tokens: aiResponse.tokens,
-              model: aiResponse.model,
-              responseTime: aiResponse.responseTime,
-            },
-          },
-        });
-
-        // Log API usage
-        await prisma.apiUsage.create({
-          data: {
-            userId: socket.userId!,
-            endpoint: "websocket_chat",
-            method: "WS",
-            tokens: aiResponse.tokens,
-            cost: aiResponse.cost,
-            responseTime: aiResponse.responseTime,
-          },
-        });
-
-        // Stop typing indicator and emit AI response
-        socket.emit("ai_stopped_typing", { conversationId: conversation.id });
-        socket.emit("ai_response", {
-          conversation: {
-            id: conversation.id,
-            title: conversation.title,
-          },
-          message: {
-            id: aiMessage.id,
-            content: aiMessage.content,
-            role: aiMessage.role,
-            timestamp: aiMessage.timestamp,
-          },
-        });
-
-        logger.info("WebSocket chat response sent", {
-          userId: socket.userId,
-          conversationId: conversation.id,
-          tokens: aiResponse.tokens,
-          responseTime: aiResponse.responseTime,
-          socketId: socket.id,
-        });
       } catch (error) {
         logger.error("WebSocket chat message error:", error);
         socket.emit("error", {
