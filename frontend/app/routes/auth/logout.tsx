@@ -1,35 +1,15 @@
 import { redirect } from "react-router";
-import { logoutUser } from "~/api/auth";
-import type { Route } from "./+types/logout";
-import { postRequest } from "~/lib/http";
-import type { LogoutResponse } from "~/api/types";
-import { API_ENDPOINTS } from "~/lib/api-endpoints";
 import { cookieNames } from "~/config/site";
+import { API_ENDPOINTS } from "~/lib/api-endpoints";
+import type { Route } from "./+types/logout";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const cookieHeader = request.headers.get("Cookie");
-  const cookie = Object.fromEntries(
-    cookieHeader?.split("; ").map((c) => c.split("=")) || []
-  );
-
-  // if (cookie[cookieNames.session_token] && cookie[cookieNames.hashedId]) {
-  //   return redirect("/");
-  // }
-
-  // await logoutUser().then(() => {
-  //   return redirect("/");
-  // });
-
-  const req = await fetch(
-    `${import.meta.env.VITE_API_URL}${API_ENDPOINTS.AUTH.LOGOUT}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
-  const res = await req.json();
+  await fetch(`${import.meta.env.VITE_API_URL}${API_ENDPOINTS.AUTH.LOGOUT}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
   return redirect("/", {
     headers: {
@@ -48,14 +28,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function LogoutPage() {
-  // const { logoutUser, isLoggingOut } = useLogout();
-
-  // useEffect(() => {
-  //   logoutUser();
-  // }, [logoutUser]);
-
-  // Show loading state briefly, then redirect
-  // if (isLoggingOut) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
       <div className="text-center">
@@ -64,8 +36,4 @@ export default function LogoutPage() {
       </div>
     </div>
   );
-  // }
-
-  // The useLogout hook handles navigation automatically
-  // return null;
 }
