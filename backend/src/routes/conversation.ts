@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { query } from "express-validator";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
+import { aiService } from "../services/ai-service";
 
 const router = Router();
 
@@ -129,6 +130,69 @@ router.get("/:conversationId", async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Failed to get conversation",
+    });
+  }
+});
+
+// start new conversation
+router.post("/", async (req: Request, res: Response) => {
+  try {
+    const { message } = req.body;
+    const userId = req.user?.id!;
+
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Message content is required",
+      });
+    }
+
+    const newConversation = await prisma.conversation.create({
+      data: {
+        userId,
+        title: message.substring(0, 50) + (message.length > 50 ? "..." : ""),
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: newConversation.id,
+        content: message,
+        role: "USER",
+      },
+    });
+
+    const aiResponse = await aiService.generateResponse(message);
+
+    await prisma.message.create({
+      data: {
+        conversationId: newConversation.id,
+        content: aiResponse.content,
+        role: "ASSISTANT",
+        metadata: {
+          model: "generation",
+        },
+      },
+    });
+
+    logger.info("New conversation started", {
+      userId,
+      conversationId: newConversation.id,
+      correlationId: req.correlationId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Conversation started successfully",
+      data: {
+        conversationId: newConversation.id,
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to start conversation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to start conversation",
     });
   }
 });
