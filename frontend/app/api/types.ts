@@ -118,3 +118,15 @@ export type DeleteConversationResponse = {
   success: true;
   message: string;
 };
+
+export type StartConversationPayload = {
+  message: string;
+};
+
+export type StartConversationResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    conversationId: string;
+  };
+};

@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (id: string) => `/conversations/${id}`,
     DELETE: (id: string) => `/conversations/${id}`,
     UPDATE_TITLE: (id: string) => `/conversations/${id}`,
+    START: "/conversations",
   },
 
   HEALTH: {

@@ -5,13 +5,20 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "~/lib/api-endpoints";
-import { deleteRequest, getRequest, patchRequest } from "~/lib/http";
+import {
+  deleteRequest,
+  getRequest,
+  patchRequest,
+  postRequest,
+} from "~/lib/http";
 import type {
   ConversationsResponse,
   DeleteConversationResponse,
   EditConversationPayload,
   EditConversationResponse,
   GetConversationResponse,
+  StartConversationPayload,
+  StartConversationResponse,
 } from "./types";
 import { displayErrorMessage, showSuccessToast } from "~/lib/utils";
 import { useNavigate } from "react-router";
@@ -43,6 +50,34 @@ export function useGetConversationById(id: string) {
         url: API_ENDPOINTS.CONVERSATIONS.GET_BY_ID(id),
       }),
     enabled: !!id,
+  });
+}
+
+export function useStartConversation() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["startConversation"],
+    mutationFn: (payload: StartConversationPayload) =>
+      postRequest<StartConversationResponse, StartConversationPayload>({
+        url: API_ENDPOINTS.CONVERSATIONS.START,
+        payload,
+      }),
+
+    onSuccess({ data }) {
+      showSuccessToast(data.message);
+
+      queryClient.invalidateQueries({
+        queryKey: ["conversations", 20],
+      });
+
+      navigate(`/c/${data.data.conversationId}`);
+    },
+
+    onError(error) {
+      displayErrorMessage(error);
+    },
   });
 }
 
