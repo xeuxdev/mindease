@@ -1,10 +1,13 @@
 import { Bot, Copy, ThumbsDown, ThumbsUp, User } from "lucide-react";
 import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { TypingIndicator } from "./typing-indicator";
-import { formatTime } from "~/lib/utils";
+import { formatTime, showSuccessToast } from "~/lib/utils";
 
 export function ChatMessages({
   messages,
@@ -36,7 +39,9 @@ export function ChatMessages({
   }, [messages]);
 
   const copyToClipboard = (content: string) => {
-    navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(content).then(() => {
+      showSuccessToast("Copied to clipboard");
+    });
   };
 
   return (
@@ -68,9 +73,42 @@ export function ChatMessages({
                     message.role === "USER" ? "bg-muted ml-auto" : ""
                   }`}
                 >
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {message.content}
-                  </div>
+                  {message.role === "ASSISTANT" ? (
+                    <div className="chat-markdown text-sm">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeHighlight]}
+                        components={{
+                          // Remove default margins and use CSS instead
+                          p: ({ children }) => <p>{children}</p>,
+                          ul: ({ children }) => <ul>{children}</ul>,
+                          ol: ({ children }) => <ol>{children}</ol>,
+                          li: ({ children }) => <li>{children}</li>,
+                          h1: ({ children }) => <h1>{children}</h1>,
+                          h2: ({ children }) => <h2>{children}</h2>,
+                          h3: ({ children }) => <h3>{children}</h3>,
+                          h4: ({ children }) => <h4>{children}</h4>,
+                          h5: ({ children }) => <h5>{children}</h5>,
+                          h6: ({ children }) => <h6>{children}</h6>,
+                          blockquote: ({ children }) => (
+                            <blockquote>{children}</blockquote>
+                          ),
+                          table: ({ children }) => <table>{children}</table>,
+                          thead: ({ children }) => <thead>{children}</thead>,
+                          tbody: ({ children }) => <tbody>{children}</tbody>,
+                          tr: ({ children }) => <tr>{children}</tr>,
+                          th: ({ children }) => <th>{children}</th>,
+                          td: ({ children }) => <td>{children}</td>,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {message.content}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Syntax highlighting styles */
+@import "highlight.js/styles/github.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -121,5 +124,86 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Dark mode syntax highlighting override */
+  .dark .hljs {
+    background: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  /* Custom markdown styles for chat messages */
+  .chat-markdown {
+    line-height: 1.5;
+  }
+  
+  .chat-markdown h1,
+  .chat-markdown h2,
+  .chat-markdown h3,
+  .chat-markdown h4,
+  .chat-markdown h5,
+  .chat-markdown h6 {
+    font-weight: 600;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+  }
+  
+  .chat-markdown p {
+    margin-bottom: 0.75em;
+  }
+  
+  .chat-markdown ul,
+  .chat-markdown ol {
+    margin-bottom: 0.75em;
+    padding-left: 1.5em;
+  }
+  
+  .chat-markdown li {
+    margin-bottom: 0.25em;
+  }
+  
+  .chat-markdown pre {
+    margin: 0.75em 0;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    background: hsl(var(--muted));
+    overflow-x: auto;
+  }
+  
+  .chat-markdown code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  
+  .chat-markdown :not(pre) > code {
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    background: hsl(var(--muted));
+    font-size: 0.875em;
+  }
+  
+  .chat-markdown blockquote {
+    border-left: 4px solid hsl(var(--border));
+    padding-left: 1rem;
+    margin: 0.75em 0;
+    font-style: italic;
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .chat-markdown table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75em 0;
+  }
+  
+  .chat-markdown th,
+  .chat-markdown td {
+    border: 1px solid hsl(var(--border));
+    padding: 0.5rem;
+    text-align: left;
+  }
+  
+  .chat-markdown th {
+    background: hsl(var(--muted));
+    font-weight: 600;
   }
 }

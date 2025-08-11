@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { io, Socket } from "socket.io-client";
 import { ChatInput } from "~/components/chat/chat-input";
 import { ChatMessages } from "~/components/chat/chat-messages";
+import { LoadingIndicator } from "~/components/ui/loaders";
 
 interface Conversation {
   id: string;
@@ -37,9 +38,13 @@ export default function ConversationPage() {
   const [connectionError, setConnectionError] = React.useState<string | null>(
     null
   );
+  const [fetchingMessages, setFetchingMessages] = React.useState(true);
 
   React.useEffect(() => {
     console.log("Connecting to socket:", socketUrl);
+
+    setFetchingMessages(true);
+
     const newSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       timeout: 5000,
@@ -160,6 +165,7 @@ export default function ConversationPage() {
       "conversation_messages",
       (data: { messages: Message[]; conversation: Conversation }) => {
         console.log("Received conversation messages:", data);
+        setFetchingMessages(false);
 
         if (data.messages && Array.isArray(data.messages)) {
           const formattedMessages = data.messages.map((msg) => ({
@@ -185,7 +191,7 @@ export default function ConversationPage() {
       setIsLoading(false);
       newSocket.close();
     };
-  }, []);
+  }, [conversationId]);
 
   const handleSend = async (input: string) => {
     if (!socket || !input.trim() || isLoading || !isConnected) return;
@@ -208,21 +214,25 @@ export default function ConversationPage() {
     });
   };
 
-  const reconnect = () => {
-    if (socket) {
-      socket.connect();
-    }
-  };
+  // const reconnect = () => {
+  //   if (socket) {
+  //     socket.connect();
+  //   }
+  // };
+
+  if (fetchingMessages) {
+    return <LoadingIndicator />;
+  }
 
   return (
     <div className="flex flex-col h-full">
-      {!isConnected && (
+      {/* {!isConnected && (
         <div className="bg-red-50 border-b border-red-200 p-2">
           <div className="flex items-center justify-center">
             <div className="w-2 h-2 rounded-full bg-red-500"></div>
           </div>
         </div>
-      )}
+      )} */}
 
       <ChatMessages isLoading={isLoading} messages={messages} />
 
