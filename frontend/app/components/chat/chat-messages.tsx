@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { TypingIndicator } from "./typing-indicator";
+import { formatTime } from "~/lib/utils";
 
 export function ChatMessages({
   messages,
@@ -11,7 +12,7 @@ export function ChatMessages({
 }: {
   messages: {
     id: string;
-    role: "user" | "assistant";
+    role: "USER" | "ASSISTANT";
     content: string;
     timestamp: Date;
   }[];
@@ -46,10 +47,10 @@ export function ChatMessages({
             <div
               key={message.id}
               className={`flex gap-4 ${
-                message.role === "user" ? "justify-end" : "justify-start"
+                message.role === "USER" ? "justify-end" : "justify-start"
               }`}
             >
-              {message.role === "assistant" && (
+              {message.role === "ASSISTANT" && (
                 <Avatar className="h-8 w-8 shrink-0">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     <Bot className="h-4 w-4" />
@@ -59,14 +60,12 @@ export function ChatMessages({
 
               <div
                 className={`flex flex-col gap-2 max-w-[80%] ${
-                  message.role === "user" ? "items-end" : "items-start"
+                  message.role === "USER" ? "items-end" : "items-start"
                 }`}
               >
                 <div
                   className={`rounded-lg px-4 py-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground ml-auto"
-                      : "bg-muted"
+                    message.role === "USER" ? "bg-muted ml-auto" : ""
                   }`}
                 >
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">
@@ -75,8 +74,8 @@ export function ChatMessages({
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{message.timestamp.toLocaleTimeString()}</span>
-                  {message.role === "assistant" && (
+                  <span>{formatTime(message.timestamp)}</span>
+                  {message.role === "ASSISTANT" && (
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
@@ -97,13 +96,13 @@ export function ChatMessages({
                 </div>
               </div>
 
-              {message.role === "user" && (
+              {/* {message.role === "USER" && (
                 <Avatar className="h-8 w-8 shrink-0">
                   <AvatarFallback>
                     <User className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-              )}
+              )} */}
             </div>
           ))}
 

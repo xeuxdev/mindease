@@ -5,6 +5,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import React from "react";
+import { useNavigate, useParams } from "react-router";
 import {
   useDeleteConversation,
   useEditConversationTitle,
@@ -26,16 +27,14 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
+import { Skeleton } from "~/components/ui/skeleton";
 import { formatDateTime } from "~/lib/utils";
-import { SidebarMenuItem } from "../ui/sidebar";
-import { Link, useParams } from "react-router";
+import { SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
 
 export function ConversationsList({ searchQuery }: { searchQuery: string }) {
-  const { id } = useParams();
+  const { id: conversationId } = useParams();
+  const navigate = useNavigate();
 
-  const [activeConversation, setActiveConversation] = React.useState(
-    id || null
-  );
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [editTitle, setEditTitle] = React.useState("");
@@ -46,7 +45,7 @@ export function ConversationsList({ searchQuery }: { searchQuery: string }) {
     string | null
   >(null);
 
-  const { data: conversations } = useGetConversations();
+  const { data: conversations, isLoading, isError } = useGetConversations();
   const editConversationMutation = useEditConversationTitle();
   const deleteConversationMutation = useDeleteConversation();
 
@@ -93,6 +92,11 @@ export function ConversationsList({ searchQuery }: { searchQuery: string }) {
       await deleteConversationMutation.mutateAsync(conversationToDelete);
       setDeleteDialogOpen(false);
       setConversationToDelete(null);
+
+      // Navigate away if we deleted the currently active conversation
+      if (conversationId === conversationToDelete) {
+        navigate("/");
+      }
     }
   };
 
@@ -111,55 +115,116 @@ export function ConversationsList({ searchQuery }: { searchQuery: string }) {
           .includes(searchQuery.toLowerCase())
     );
 
-  return (
-    <div className="space-y-2">
-      {filteredConversations?.map((conversation) => (
-        <SidebarMenuItem key={conversation.id}>
-          <Link
-            to={`/c/${conversation.id}`}
-            className={`flex flex-col items-start gap-1 p-3 h-auto group overflow-hidden ${
-              activeConversation === conversation.id ? "bg-white" : ""
-            }`}
-            onClick={() => setActiveConversation(conversation.id)}
-          >
-            <div className="w-full cursor-pointer">
-              <div className="flex items-center justify-between w-full ">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <MessageSquareIcon className="h-4 w-4 shrink-0" />
-                  <span className="font-medium truncate text-sm">
-                    {conversation.title}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger>
-                      <MoreVerticalIcon className="size-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem
-                        onClick={() => handleEditStart(conversation)}
-                      >
-                        <Edit3Icon className="h-3 w-3" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteClick(conversation.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2Icon className="h-3 w-3 text-destructive" />{" "}
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+  // Show loading skeleton while data is loading
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <SidebarMenuItem key={index}>
+            <div className="flex flex-col gap-2 p-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 shrink-0" />
+                <Skeleton className="h-4 flex-1" />
               </div>
-              <div className="text-xs text-muted-foreground mt-1 pl-6">
-                {formatDateTime(conversation.updatedAt)}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1 pl-6 truncate text-ellipsis">
-                {conversation.lastMessage.content}
-              </div>
+              <Skeleton className="h-3 w-20 ml-6" />
+              <Skeleton className="h-3 w-32 ml-6" />
             </div>
-          </Link>
+          </SidebarMenuItem>
+        ))}
+      </div>
+    );
+  }
+
+  // Show error state
+  if (isError) {
+    return (
+      <div className="p-3 text-center text-sm text-muted-foreground">
+        Failed to load conversations
+      </div>
+    );
+  }
+
+  // Show empty state
+  if (!filteredConversations || filteredConversations.length === 0) {
+    return (
+      <div className="p-3 text-center text-sm text-muted-foreground">
+        {searchQuery ? "No conversations found" : "No conversations yet"}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {filteredConversations.map((conversation) => (
+        <SidebarMenuItem key={conversation.id}>
+          <div className="relative group">
+            <SidebarMenuButton
+              className={`w-full h-auto p-0 hover:bg-sidebar-accent/50 transition-colors ${
+                conversationId === conversation.id ? "bg-sidebar-accent" : ""
+              }`}
+              onClick={() => navigate(`/c/${conversation.id}`)}
+              isActive={conversationId === conversation.id}
+              asChild
+            >
+              <div className="w-full cursor-pointer p-3 flex flex-col items-start gap-1">
+                <div className="flex items-center justify-between w-full min-h-[20px]">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <MessageSquareIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="font-medium truncate text-sm leading-5">
+                      {conversation.title}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="flex items-center justify-center h-6 w-6 rounded hover:bg-sidebar-accent-foreground/10 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                      >
+                        <MoreVerticalIcon className="h-3 w-3" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-32"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditStart(conversation);
+                          }}
+                        >
+                          <Edit3Icon className="h-3 w-3 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(conversation.id);
+                          }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2Icon className="h-3 w-3 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground pl-6 w-full">
+                  <div className="truncate">
+                    {formatDateTime(conversation.updatedAt)}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground pl-6 w-full">
+                  <div className="truncate line-clamp-1">
+                    {conversation.lastMessage.content}
+                  </div>
+                </div>
+              </div>
+            </SidebarMenuButton>
+          </div>
         </SidebarMenuItem>
       ))}
 

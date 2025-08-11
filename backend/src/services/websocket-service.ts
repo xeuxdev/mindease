@@ -1,10 +1,10 @@
-import { Server as SocketIOServer, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
+import { Socket, Server as SocketIOServer } from "socket.io";
+import { cookieNames } from "../config/constants";
 import { prisma } from "../config/database";
+import { env, jwtConfig } from "../config/env";
 import { logger } from "../utils/logger";
 import { aiService } from "./ai-service";
-import { env, jwtConfig } from "../config/env";
-import { cookieNames } from "../config/constants";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -291,54 +291,24 @@ export function setupWebSocket(io: SocketIOServer) {
           }
         );
       } catch (error) {
-        logger.error("WebSocket chat message error:", error);
+        logger.error("WebSocket chat message error:", {
+          userId: socket.userId,
+          socketId: socket.id,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
         socket.emit("error", {
           message: "Failed to process message",
-          error: env.NODE_ENV === "development" ? error : undefined,
-        });
-      }
-    });
-
-    // Handle conversation operations
-    socket.on("get_conversations", async () => {
-      try {
-        const conversations = await prisma.conversation.findMany({
-          where: {
-            userId: socket.userId,
-            isActive: true,
-          },
-          include: {
-            messages: {
-              orderBy: { timestamp: "desc" },
-              take: 1,
-            },
-            _count: {
-              select: { messages: true },
-            },
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 20,
-        });
-
-        socket.emit("conversations_list", {
-          conversations: conversations.map((conv: any) => ({
-            id: conv.id,
-            title: conv.title,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt,
-            messageCount: conv._count.messages,
-            lastMessage: conv.messages[0]
+          error:
+            env.NODE_ENV === "development"
               ? {
-                  content: conv.messages[0].content.substring(0, 100),
-                  timestamp: conv.messages[0].timestamp,
-                  role: conv.messages[0].role,
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                  name: error instanceof Error ? error.name : "Unknown",
+                  stack: error instanceof Error ? error.stack : undefined,
                 }
-              : null,
-          })),
+              : undefined,
         });
-      } catch (error) {
-        logger.error("WebSocket get conversations error:", error);
-        socket.emit("error", { message: "Failed to get conversations" });
       }
     });
 
@@ -371,7 +341,7 @@ export function setupWebSocket(io: SocketIOServer) {
             createdAt: conversation.createdAt,
             updatedAt: conversation.updatedAt,
           },
-          messages: conversation.messages.map((msg: any) => ({
+          messages: conversation.messages.map((msg) => ({
             id: msg.id,
             content: msg.content,
             role: msg.role,
@@ -379,26 +349,14 @@ export function setupWebSocket(io: SocketIOServer) {
           })),
         });
       } catch (error) {
-        logger.error("WebSocket get conversation error:", error);
+        logger.error("WebSocket get conversation error:", {
+          userId: socket.userId,
+          socketId: socket.id,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
         socket.emit("error", { message: "Failed to get conversation" });
       }
-    });
-
-    // Handle typing indicators
-    socket.on("typing", (data) => {
-      const { conversationId } = data;
-      socket.to(`conversation_${conversationId}`).emit("user_typing", {
-        userId: socket.userId,
-        conversationId,
-      });
-    });
-
-    socket.on("stop_typing", (data) => {
-      const { conversationId } = data;
-      socket.to(`conversation_${conversationId}`).emit("user_stopped_typing", {
-        userId: socket.userId,
-        conversationId,
-      });
     });
 
     // Handle disconnection
@@ -415,7 +373,7 @@ export function setupWebSocket(io: SocketIOServer) {
       logger.error("WebSocket error:", {
         userId: socket.userId,
         socketId: socket.id,
-        error,
+        error: error.message || error,
       });
     });
   });

@@ -69,7 +69,7 @@ export function useStartConversation() {
       showSuccessToast(data.message);
 
       queryClient.invalidateQueries({
-        queryKey: ["conversations", 20],
+        queryKey: ["conversations"],
       });
 
       navigate(`/c/${data.data.conversationId}`);
@@ -95,7 +95,7 @@ export function useEditConversationTitle() {
       showSuccessToast(data.message);
 
       queryClient.invalidateQueries({
-        queryKey: ["conversations", 20],
+        queryKey: ["conversations"],
       });
     },
     mutationKey: ["edit-conversation"],
@@ -118,7 +118,7 @@ export function useDeleteConversation() {
       showSuccessToast(data.message);
 
       queryClient.invalidateQueries({
-        queryKey: ["conversations", 20],
+        queryKey: ["conversations"],
       });
 
       navigate("/", { replace: true });

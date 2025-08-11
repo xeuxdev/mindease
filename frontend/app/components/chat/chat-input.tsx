@@ -6,18 +6,15 @@ import { SendIcon } from "lucide-react";
 export function ChatInput({
   isLoading,
   onSend,
-  onInputChange,
 }: {
   isLoading: boolean;
   onSend: (input: string) => void;
-  onInputChange?: (value: string) => void;
 }) {
   const [input, setInput] = React.useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
-    onInputChange?.(value);
   };
 
   const handleSend = () => {

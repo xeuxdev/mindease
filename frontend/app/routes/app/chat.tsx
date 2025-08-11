@@ -183,10 +183,10 @@ export default function ChatPage() {
     });
 
     // Get conversations list
-    newSocket.on("conversations_list", (data) => {
-      console.log("Received conversations list:", data);
-      // Handle conversations list if needed
-    });
+    // newSocket.on("conversations_list", (data) => {
+    //   console.log("Received conversations list:", data);
+    //   // Handle conversations list if needed
+    // });
 
     // Get conversation messages
     newSocket.on("conversation_messages", (data) => {

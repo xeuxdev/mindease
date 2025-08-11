@@ -8,7 +8,6 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
   DropdownMenu,
@@ -25,12 +24,30 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "~/components/ui/sidebar";
+import { Skeleton } from "~/components/ui/skeleton";
 import { useUser } from "~/context/user-context";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
-  const { user } = useUser();
+  const { user, isLoading } = useUser();
   const navigate = useNavigate();
+
+  if (isLoading) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" disabled>
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <div className="grid flex-1 text-left text-sm leading-tight gap-1">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <Skeleton className="ml-auto h-4 w-4" />
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
 
   return (
     <SidebarMenu>
@@ -47,14 +64,14 @@ export function NavUser() {
                   alt={user?.id || "User Avatar"}
                 />
                 <AvatarFallback className="rounded-lg">
-                  {user?.email.split("")[0]}
+                  {user?.email?.split("")[0] || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
-                  {user?.email.split("@")[0]}
+                  {user?.email?.split("@")[0] || "User"}
                 </span>
-                <span className="truncate text-xs">{user?.email}</span>
+                <span className="truncate text-xs">{user?.email || ""}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -73,14 +90,14 @@ export function NavUser() {
                     alt={user?.id || "User Avatar"}
                   />
                   <AvatarFallback className="rounded-lg">
-                    {user?.email.split("")[0]}
+                    {user?.email?.split("")[0] || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">
-                    {user?.email.split("@")[0]}
+                    {user?.email?.split("@")[0] || "User"}
                   </span>
-                  <span className="truncate text-xs">{user?.email}</span>
+                  <span className="truncate text-xs">{user?.email || ""}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
