@@ -174,7 +174,7 @@ export function ConversationsList({ searchQuery }: { searchQuery: string }) {
                       {conversation.title}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         className="flex items-center justify-center h-6 w-6 rounded hover:bg-sidebar-accent-foreground/10 transition-colors"

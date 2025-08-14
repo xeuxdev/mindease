@@ -3,7 +3,7 @@ import { useParams } from "react-router";
 import { io, Socket } from "socket.io-client";
 import { ChatInput } from "~/components/chat/chat-input";
 import { ChatMessages } from "~/components/chat/chat-messages";
-import { LoadingIndicator } from "~/components/ui/loaders";
+import { ChatMessageLoader, LoadingIndicator } from "~/components/ui/loaders";
 
 interface Conversation {
   id: string;
@@ -39,6 +39,7 @@ export default function ConversationPage() {
     null
   );
   const [fetchingMessages, setFetchingMessages] = React.useState(true);
+  const [waitForAIResponse, setWaitForAIResponse] = React.useState(false);
 
   React.useEffect(() => {
     console.log("Connecting to socket:", socketUrl);
@@ -92,6 +93,7 @@ export default function ConversationPage() {
 
     newSocket.on("ai_chunk", (data: AIChunkResponse) => {
       console.log("Received AI chunk:", data);
+      setWaitForAIResponse(false);
 
       if (data.conversationId && data.content !== undefined) {
         // Generate a consistent message ID based on conversation
@@ -206,6 +208,7 @@ export default function ConversationPage() {
     // Add message to local state immediately
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+    setWaitForAIResponse(true);
 
     // Send to server in the expected format
     socket.emit("chat_message", {
@@ -221,7 +224,7 @@ export default function ConversationPage() {
   // };
 
   if (fetchingMessages) {
-    return <LoadingIndicator />;
+    return <ChatMessageLoader />;
   }
 
   return (
@@ -234,7 +237,7 @@ export default function ConversationPage() {
         </div>
       )} */}
 
-      <ChatMessages isLoading={isLoading} messages={messages} />
+      <ChatMessages isLoading={waitForAIResponse} messages={messages} />
 
       {/* Fixed input area */}
       <ChatInput isLoading={isLoading || !isConnected} onSend={handleSend} />

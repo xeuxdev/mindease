@@ -1,13 +1,13 @@
-import { Bot, Copy, ThumbsDown, ThumbsUp, User } from "lucide-react";
+import { Bot, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import remarkGfm from "remark-gfm";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { TypingIndicator } from "./typing-indicator";
 import { formatTime, showSuccessToast } from "~/lib/utils";
+import { TypingIndicator } from "./typing-indicator";
 
 export function ChatMessages({
   messages,

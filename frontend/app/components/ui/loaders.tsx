@@ -1,3 +1,5 @@
+import { BotIcon } from "lucide-react";
+
 export function AuthLoading() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -53,8 +55,79 @@ export function AuthLoading() {
 
 export function LoadingIndicator() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="relative">
+        {/* Main loading circle */}
+        <div className="relative w-24 h-24">
+          <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-500 border-r-purple-500 animate-spin"></div>
+        </div>
+
+        {/* Inner pulsing dot */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
+        </div>
+
+        {/* Loading text */}
+        <div className="absolute top-28 left-1/2 transform -translate-x-1/2 text-center">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            Loading...
+          </p>
+          <div className="flex justify-center space-x-1 mt-2">
+            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
+            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.1s]"></div>
+            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+          </div>
+        </div>
+
+        {/* Glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-purple-600/10 blur-2xl -z-10"></div>
+      </div>
+    </div>
+  );
+}
+
+export function ChatMessageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="relative">
+        <div className="flex flex-col items-center space-y-6">
+          {/* Animated chat bubbles */}
+          <div className="relative">
+            <div className="flex items-center space-x-3">
+              {/* Bot avatar with pulse */}
+              <div className="relative">
+                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg">
+                  <BotIcon className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping"></div>
+              </div>
+
+              {/* Animated typing bubbles */}
+              <div className="flex space-x-1 bg-card backdrop-blur-sm rounded-lg px-4 py-3 shadow-md border">
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.1s]"></div>
+                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Loading text */}
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">
+              Loading conversation...
+            </h3>
+            <div className="flex justify-center space-x-1 mt-2">
+              <div className="w-1 h-1 bg-primary rounded-full animate-bounce"></div>
+              <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:0.1s]"></div>
+              <div className="w-1 h-1 bg-primary rounded-full animate-bounce [animation-delay:0.2s]"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Glow effect */}
+        <div className="absolute inset-0 bg-primary/10 blur-3xl -z-10 animate-pulse"></div>
+      </div>
     </div>
   );
 }

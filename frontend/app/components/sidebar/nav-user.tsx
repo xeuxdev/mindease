@@ -64,14 +64,20 @@ export function NavUser() {
                   alt={user?.id || "User Avatar"}
                 />
                 <AvatarFallback className="rounded-lg">
-                  {user?.email?.split("")[0] || "U"}
+                  {user?.isAnonymous
+                    ? "Anonymous"
+                    : user?.email?.split("")[0] || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
-                  {user?.email?.split("@")[0] || "User"}
+                  {user?.isAnonymous
+                    ? "Anonymous"
+                    : user?.email?.split("@")[0] || "User"}
                 </span>
-                <span className="truncate text-xs">{user?.email || ""}</span>
+                <span className="truncate text-xs">
+                  {user?.isAnonymous ? "Anonymous" : user?.email || "U"}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
