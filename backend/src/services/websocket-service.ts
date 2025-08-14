@@ -190,7 +190,6 @@ export function setupWebSocket(io: SocketIOServer) {
 
         const startTime = Date.now();
         let fullContent = "";
-        let aiMessageId: string | null = null;
 
         // Stream AI response
         await aiService.streamResponse(
@@ -226,8 +225,6 @@ export function setupWebSocket(io: SocketIOServer) {
                     },
                   },
                 });
-
-                aiMessageId = aiMessage.id;
 
                 // Log API usage (with estimated tokens since streaming doesn't provide exact count)
                 const estimatedTokens = Math.ceil(fullContent.length / 4);

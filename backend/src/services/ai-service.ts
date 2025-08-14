@@ -203,16 +203,16 @@ class AIService {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
 
-            if (data === "[DONE]") {
-              let cleanContent = fullContent
-                .replace(/<think>[\s\S]*?<\/think>/g, "")
-                .replace(/<think>[\s\S]*$/g, "")
-                .replace(/<\/think>/g, "")
-                .replace(/^\s*\n+/, "")
-                .trim();
-              onChunk({ type: "done", content: cleanContent });
-              return;
-            }
+            // if (data === "[DONE]") {
+            //   let cleanContent = fullContent
+            //     .replace(/<think>[\s\S]*?<\/think>/g, "")
+            //     .replace(/<think>[\s\S]*$/g, "")
+            //     .replace(/<\/think>/g, "")
+            //     .replace(/^\s*\n+/, "")
+            //     .trim();
+            //   onChunk({ type: "done", content: cleanContent });
+            //   return;
+            // }
 
             try {
               const parsed = JSON.parse(data);
@@ -274,24 +274,27 @@ class AIService {
     userMessage: string,
     conversationHistory: Message[]
   ): any[] {
-    const systemPrompt = {
-      role: "system",
-      content: `You are a compassionate AI therapist chatbot designed to provide emotional support and guidance. 
+    //     const systemPrompt = {
+    //       role: "system",
+    //       content: `You are a compassionate AI therapist chatbot designed to provide emotional support and guidance.
 
-Key guidelines:
-- Always respond with empathy and understanding
-- Ask thoughtful follow-up questions to encourage reflection
-- Provide coping strategies and techniques when appropriate
-- Maintain professional boundaries - you are not a replacement for professional therapy
-- If someone expresses suicidal thoughts or immediate danger, encourage them to seek professional help
-- Keep responses concise but meaningful (under 200 words)
-- Use active listening techniques in your responses
-- Validate the user's feelings and experiences
+    // Key guidelines:
+    // - Always respond with empathy and understanding
+    // - Ask thoughtful follow-up questions to encourage reflection
+    // - Provide coping strategies and techniques when appropriate
+    // - Maintain professional boundaries - you are not a replacement for professional therapy
+    // - If someone expresses suicidal thoughts or immediate danger, encourage them to seek professional help
+    // - Keep responses concise but meaningful (under 200 words)
+    // - Use active listening techniques in your responses
+    // - Validate the user's feelings and experiences
+    // - Respond politely to users thanks and other positive experiences responses
+    // - Encourage users to share their thoughts and feelings openly, without fear of judgment.
 
-Remember: You are here to listen, support, and guide, not to diagnose or provide medical advice.`,
-    };
+    // Remember: You are here to listen, support, and guide, not to diagnose or provide medical advice.`,
+    //     };
 
-    const messages = [systemPrompt];
+    // const messages = [systemPrompt];
+    let messages = [];
 
     // Add conversation history (last 5 exchanges to manage token usage)
     const recentHistory = conversationHistory.slice(-10);
