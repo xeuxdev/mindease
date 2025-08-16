@@ -20,7 +20,7 @@ async function main() {
   console.log("👥 Creating users...");
 
   // Create an admin/test user with email
-  const hashedPassword = await bcrypt.hash("password123", 10);
+  const hashedPassword = await bcrypt.hash("passWord123", 10);
   const adminUser = await prisma.user.create({
     data: {
       id: crypto.randomUUID(),
@@ -28,6 +28,7 @@ async function main() {
       isAnonymous: false,
       hashedId: "admin_hashed_id_" + Date.now(),
       password: hashedPassword,
+      isDeletedAt: null, // Explicitly set for soft delete support
     },
   });
 
@@ -38,6 +39,7 @@ async function main() {
         id: crypto.randomUUID(),
         isAnonymous: true,
         hashedId: "anon_user_1_" + Date.now(),
+        isDeletedAt: null, // Explicitly set for soft delete support
       },
     }),
     prisma.user.create({
@@ -45,6 +47,7 @@ async function main() {
         id: crypto.randomUUID(),
         isAnonymous: true,
         hashedId: "anon_user_2_" + Date.now(),
+        isDeletedAt: null, // Explicitly set for soft delete support
       },
     }),
     prisma.user.create({
@@ -54,6 +57,18 @@ async function main() {
         isAnonymous: false,
         hashedId: "user_hashed_id_" + Date.now(),
         password: hashedPassword,
+        isDeletedAt: null, // Explicitly set for soft delete support
+      },
+    }),
+    // Create a soft-deleted user to demonstrate the functionality
+    prisma.user.create({
+      data: {
+        id: crypto.randomUUID(),
+        email: "deleted@example.com",
+        isAnonymous: false,
+        hashedId: "deleted_user_" + Date.now(),
+        password: hashedPassword,
+        isDeletedAt: new Date(Date.now() - 60000 * 30), // Deleted 30 minutes ago
       },
     }),
   ]);
@@ -301,6 +316,34 @@ async function main() {
         timestamp: new Date(Date.now() - 60000 * 10), // 10 minutes ago
       },
     }),
+    prisma.systemLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        level: LogLevel.INFO,
+        message: "User account soft deleted",
+        source: "user-service",
+        metadata: {
+          userId: anonymousUsers[3].id, // The soft-deleted user
+          email: "deleted@example.com",
+          reason: "User requested account deletion",
+        },
+        timestamp: new Date(Date.now() - 60000 * 30), // 30 minutes ago (matches deletion time)
+      },
+    }),
+    prisma.systemLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        level: LogLevel.INFO,
+        message: "Soft deleted user attempted login - access denied",
+        source: "auth-service",
+        metadata: {
+          userId: anonymousUsers[3].id,
+          email: "deleted@example.com",
+          action: "login_attempt_blocked",
+        },
+        timestamp: new Date(Date.now() - 60000 * 10), // 10 minutes ago
+      },
+    }),
   ]);
 
   console.log(`✅ Created ${systemLogs.length} system logs`);
@@ -336,6 +379,22 @@ async function main() {
         },
         resolved: false,
         timestamp: new Date(Date.now() - 60000 * 5), // 5 minutes ago
+      },
+    }),
+    prisma.errorLog.create({
+      data: {
+        id: crypto.randomUUID(),
+        error: "Attempted login by soft-deleted user",
+        stack:
+          "AuthenticationError: User account has been deactivated\n    at AuthService.validateUser (/src/routes/auth.ts:208:12)",
+        context: {
+          userId: anonymousUsers[3].id, // The soft-deleted user
+          email: "deleted@example.com",
+          isDeletedAt: "2025-08-16T12:30:00.000Z",
+        },
+        resolved: true,
+        resolvedAt: new Date(Date.now() - 60000 * 2), // Resolved 2 minutes ago
+        timestamp: new Date(Date.now() - 60000 * 10), // Error occurred 10 minutes ago
       },
     }),
   ]);
@@ -396,7 +455,7 @@ async function main() {
     {
       endpoint: "/api/users/profile",
       method: "GET",
-      userId: adminUser.id,
+      userId: anonymousUsers[2].id, // The regular user (not soft-deleted)
       tokens: null,
       cost: null,
       responseTime: 156,
@@ -408,6 +467,23 @@ async function main() {
       tokens: null,
       cost: null,
       responseTime: 23,
+    },
+    {
+      endpoint: "/api/auth/login",
+      method: "POST",
+      userId: anonymousUsers[2].id, // The regular user
+      tokens: null,
+      cost: null,
+      responseTime: 189,
+    },
+    // Historical data from soft-deleted user (before deletion)
+    {
+      endpoint: "/api/chat/send",
+      method: "POST",
+      userId: anonymousUsers[3].id, // The soft-deleted user
+      tokens: 35,
+      cost: 0.0007,
+      responseTime: 1100,
     },
   ];
 
@@ -422,7 +498,7 @@ async function main() {
           tokens: usage.tokens,
           cost: usage.cost,
           responseTime: usage.responseTime,
-          timestamp: new Date(Date.now() - 60000 * (60 - index * 5)), // Spread over the last hour
+          timestamp: new Date(Date.now() - 60000 * (90 - index * 8)), // Spread over the last 90 minutes
         },
       })
     )
@@ -434,8 +510,8 @@ async function main() {
   console.log("\n📊 Summary:");
   console.log(
     `  • Users: ${1 + anonymousUsers.length} (1 admin, ${
-      anonymousUsers.length
-    } others)`
+      anonymousUsers.length - 1
+    } active users, 1 soft-deleted)`
   );
   console.log(`  • Sessions: ${sessions.length}`);
   console.log(`  • Conversations: ${conversations.length}`);
@@ -446,6 +522,9 @@ async function main() {
   console.log("\n🔐 Test Credentials:");
   console.log("  Admin: admin@mindease.com / password123");
   console.log("  User: user@example.com / password123");
+  console.log(
+    "  Soft-deleted User: deleted@example.com / password123 (should not be able to login)"
+  );
 }
 
 main()

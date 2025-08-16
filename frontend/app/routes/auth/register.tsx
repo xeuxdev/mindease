@@ -18,7 +18,7 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form";
-import { Input } from "~/components/ui/input";
+import { Input, PasswordInput } from "~/components/ui/input";
 import type { Route } from "./+types/register";
 
 // Login schema moved from types.ts
@@ -108,8 +108,7 @@ export default function RegisterPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
+                          <PasswordInput
                             placeholder="********"
                             disabled={isLoading}
                             {...field}
@@ -127,8 +126,7 @@ export default function RegisterPage() {
                       <FormItem>
                         <FormLabel>Confirm Password</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
+                          <PasswordInput
                             placeholder="********"
                             disabled={isLoading}
                             {...field}
@@ -165,7 +163,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="text-center text-sm">
-                  Don&apos;t have an account?{" "}
+                  Already have an account?{" "}
                   <a
                     href="/auth/login"
                     className="underline underline-offset-4"

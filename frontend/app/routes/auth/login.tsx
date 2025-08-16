@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
+import { Input, PasswordInput } from "~/components/ui/input";
 import {
   Form,
   FormControl,
@@ -98,8 +98,7 @@ export default function LoginPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
+                          <PasswordInput
                             placeholder="********"
                             disabled={isLoading}
                             {...field}

@@ -22,10 +22,13 @@ import type {
 } from "./types";
 import { displayErrorMessage, showSuccessToast } from "~/lib/utils";
 import { useNavigate } from "react-router";
+import { useUser } from "~/context/user-context";
 
 export function useGetConversations(limit: number = 20) {
+  const { user } = useUser();
+
   return useInfiniteQuery({
-    queryKey: ["conversations", limit],
+    queryKey: ["conversations", limit, user?.id, user?.isAnonymous],
     queryFn: ({ pageParam = 1 }) =>
       getRequest<ConversationsResponse>({
         url: API_ENDPOINTS.CONVERSATIONS.GET_ALL(pageParam, limit),

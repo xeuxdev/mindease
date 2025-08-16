@@ -19,12 +19,14 @@ function getCachedUserData(): WhoAmIResponse | null {
 // Helper function to cache user data to localStorage
 function setCachedUserData(data: WhoAmIResponse) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn("Failed to cache user data:", error);
+  }
 }
 
 export function useWhoAmI() {
-  const cachedData = getCachedUserData();
-
   return useQuery({
     queryKey: ["whoami"],
     queryFn: async () => {
@@ -37,6 +39,9 @@ export function useWhoAmI() {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: false,
-    initialData: cachedData || undefined,
+    initialData: () => {
+      // Only get cached data on client side
+      return typeof window !== "undefined" ? getCachedUserData() : undefined;
+    },
   });
 }
