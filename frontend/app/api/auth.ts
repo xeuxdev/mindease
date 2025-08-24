@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { API_ENDPOINTS } from "~/lib/api-endpoints";
 import { postRequest } from "~/lib/http";
@@ -14,6 +14,7 @@ import type {
 
 export function useLogin() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { setUser } = useUser();
 
   return useMutation({
@@ -27,6 +28,9 @@ export function useLogin() {
 
     onSuccess(data) {
       setUser(data.data.user);
+      queryClient.invalidateQueries({
+        queryKey: ["whoami"],
+      });
       navigate("/", {
         replace: true,
       });
@@ -64,6 +68,7 @@ export function useRegister() {
 
 export function useAnonymousLogin() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
@@ -75,6 +80,10 @@ export function useAnonymousLogin() {
     },
 
     onSuccess(data) {
+      queryClient.invalidateQueries({
+        queryKey: ["whoami"],
+      });
+
       navigate("/");
       showSuccessToast(data.message);
     },
@@ -96,6 +105,7 @@ export const logoutUser = async () => {
 
 export function useLogout() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { setUser } = useUser();
 
   const { mutate: logoutUser, isPending: isLoggingOut } = useMutation({
@@ -107,6 +117,9 @@ export function useLogout() {
     },
     onSuccess() {
       setUser(null);
+      queryClient.invalidateQueries({
+        queryKey: ["whoami"],
+      });
       showSuccessToast("Logged out successfully");
       navigate("/auth/login", { replace: true });
     },

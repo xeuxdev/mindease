@@ -1,12 +1,4 @@
-import {
-  BadgeCheckIcon,
-  BellIcon,
-  ChevronsUpDown,
-  CreditCardIcon,
-  LogOutIcon,
-  SettingsIcon,
-  SparklesIcon,
-} from "lucide-react";
+import { BadgeCheckIcon, ChevronsUpDown, LogOutIcon } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
@@ -110,27 +102,8 @@ export function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <SparklesIcon />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
                 <BadgeCheckIcon />
                 Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon />
-                Notifications
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <SettingsIcon />
-                Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
