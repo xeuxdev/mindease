@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { Request, Response, Router } from "express";
-import { body, validationResult } from "express-validator";
+import { CookieOptions, Request, Response, Router } from "express";
+import { body, cookie, validationResult } from "express-validator";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
@@ -9,6 +9,15 @@ import { env, jwtConfig } from "../config/env";
 import { cookieNames } from "../config/constants";
 
 const router = Router();
+
+const cookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  path: "/",
+  maxAge: jwtConfig.expiresIn as number,
+  domain: new URL(env.CORS_ORIGIN).hostname,
+};
 
 // Create anonymous user session
 router.post("/anonymous", async (req: Request, res: Response) => {
@@ -52,11 +61,9 @@ router.post("/anonymous", async (req: Request, res: Response) => {
       correlationId: req.correlationId,
     });
 
-    res.setHeader("Set-Cookie", [
-      `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      `${cookieNames.isAnonymous}=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-    ]);
+    res.cookie(cookieNames.sessionToken, sessionToken, cookieOptions);
+    res.cookie(cookieNames.hashedId, user.hashedId, cookieOptions);
+    res.cookie(cookieNames.isAnonymous, user.isAnonymous, cookieOptions);
 
     res.status(201).json({
       success: true,
@@ -238,12 +245,19 @@ router.post(
         correlationId: req.correlationId,
       });
 
-      res.setHeader("Set-Cookie", [
-        `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-        `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-        `${cookieNames.email}=${email}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-        `${cookieNames.isAnonymous}=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      ]);
+      // res.setHeader("Set-Cookie", [
+      //   `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      //   `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      //   `${cookieNames.email}=${email}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      //   `${cookieNames.isAnonymous}=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
+      // ]);
+
+      console.log("Cookie options:", cookieOptions);
+
+      res.cookie(cookieNames.sessionToken, sessionToken, cookieOptions);
+      res.cookie(cookieNames.hashedId, user.hashedId, cookieOptions);
+      res.cookie(cookieNames.email, email, cookieOptions);
+      res.cookie(cookieNames.isAnonymous, user.isAnonymous, cookieOptions);
 
       return res.json({
         success: true,
