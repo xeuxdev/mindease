@@ -5,7 +5,7 @@ import { body, cookie, validationResult } from "express-validator";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
-import { env, jwtConfig } from "../config/env";
+import { env, jwtConfig, serverConfig } from "../config/env";
 import { cookieNames } from "../config/constants";
 
 const router = Router();
@@ -16,7 +16,7 @@ const cookieOptions: CookieOptions = {
   sameSite: "strict" as const,
   path: "/",
   maxAge: jwtConfig.expiresIn as number,
-  domain: new URL(env.CORS_ORIGIN).hostname,
+  domain: new URL(serverConfig.frontendUrl).hostname,
 };
 
 // Create anonymous user session

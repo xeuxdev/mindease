@@ -40,7 +40,7 @@ const envSchema = z.object({
     .transform((val) => parseInt(val, 10)),
 
   // CORS configuration
-  CORS_ORIGIN: z.string().default("*"),
+  FRONTEND_URL: z.string().url("FRONTEND_URL must be a valid URL"),
 
   // Logging
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
@@ -164,7 +164,8 @@ export const jwtConfig = {
 export const serverConfig = {
   port: env.PORT,
   nodeEnv: env.NODE_ENV,
-  corsOrigin: env.CORS_ORIGIN,
+  corsOrigin: env.FRONTEND_URL,
+  frontendUrl: env.FRONTEND_URL,
 } as const;
 
 export const rateLimitConfig = {
