@@ -1,23 +1,13 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { CookieOptions, Request, Response, Router } from "express";
-import { body, cookie, validationResult } from "express-validator";
+import { Request, Response, Router } from "express";
+import { body, validationResult } from "express-validator";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { prisma } from "../config/database";
 import { logger } from "../utils/logger";
-import { env, jwtConfig, serverConfig } from "../config/env";
-import { cookieNames } from "../config/constants";
+import { env, jwtConfig } from "../config/env";
 
 const router = Router();
-
-const cookieOptions: CookieOptions = {
-  httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: "strict" as const,
-  path: "/",
-  maxAge: jwtConfig.expiresIn as number,
-  domain: new URL(serverConfig.frontendUrl).hostname,
-};
 
 // Create anonymous user session
 router.post("/anonymous", async (req: Request, res: Response) => {
@@ -61,10 +51,7 @@ router.post("/anonymous", async (req: Request, res: Response) => {
       correlationId: req.correlationId,
     });
 
-    res.cookie(cookieNames.sessionToken, sessionToken, cookieOptions);
-    res.cookie(cookieNames.hashedId, user.hashedId, cookieOptions);
-    res.cookie(cookieNames.isAnonymous, user.isAnonymous, cookieOptions);
-
+    // Return the token in the response instead of setting cookies
     res.status(201).json({
       success: true,
       message: "Anonymous session created successfully",
@@ -245,25 +232,12 @@ router.post(
         correlationId: req.correlationId,
       });
 
-      // res.setHeader("Set-Cookie", [
-      //   `${cookieNames.sessionToken}=${sessionToken}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      //   `${cookieNames.hashedId}=${user.hashedId}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      //   `${cookieNames.email}=${email}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      //   `${cookieNames.isAnonymous}=${user.isAnonymous}; HttpOnly; Path=/; Max-Age=${jwtConfig.expiresIn}; SameSite=Strict; Secure`,
-      // ]);
-
-      console.log("Cookie options:", cookieOptions);
-
-      res.cookie(cookieNames.sessionToken, sessionToken, cookieOptions);
-      res.cookie(cookieNames.hashedId, user.hashedId, cookieOptions);
-      res.cookie(cookieNames.email, email, cookieOptions);
-      res.cookie(cookieNames.isAnonymous, user.isAnonymous, cookieOptions);
-
+      // Return token in the response instead of setting cookies
       return res.json({
         success: true,
         message: "Login successful",
         data: {
-          // token: sessionToken,
+          token: sessionToken,
           user: {
             id: user.id,
             email: user.email,
@@ -286,8 +260,17 @@ router.post(
 // Logout
 router.post("/logout", async (req: Request, res: Response) => {
   try {
-    const cookieName = cookieNames.sessionToken;
-    const token = req.cookies[cookieName];
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(400).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
 
     if (token) {
       // Delete session
@@ -299,11 +282,6 @@ router.post("/logout", async (req: Request, res: Response) => {
         correlationId: req.correlationId,
       });
     }
-
-    res.clearCookie(cookieNames.sessionToken);
-    res.clearCookie(cookieNames.email);
-    res.clearCookie(cookieNames.hashedId);
-    res.clearCookie(cookieNames.isAnonymous);
 
     return res.json({
       success: true,
@@ -318,23 +296,25 @@ router.post("/logout", async (req: Request, res: Response) => {
   }
 });
 
-// Logout
+// Logout from all devices
 router.post("/logout/all-devices", async (req: Request, res: Response) => {
   try {
-    const cookieName = cookieNames.sessionToken;
-    const token = req.cookies[cookieName];
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
 
-    if (!token) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(400).json({
         success: false,
         message: "No active session found",
       });
     }
 
+    const token = authHeader.split(" ")[1];
+
     // Verify JWT token
     const decoded = jwt.verify(token, jwtConfig.secret) as JwtPayload;
 
-    // Delete session
+    // Delete all sessions for this user
     await prisma.session.deleteMany({
       where: { userId: decoded.userId },
     });
@@ -343,14 +323,9 @@ router.post("/logout/all-devices", async (req: Request, res: Response) => {
       correlationId: req.correlationId,
     });
 
-    res.clearCookie(cookieNames.sessionToken);
-    res.clearCookie(cookieNames.email);
-    res.clearCookie(cookieNames.hashedId);
-    res.clearCookie(cookieNames.isAnonymous);
-
     return res.json({
       success: true,
-      message: "Logout successful",
+      message: "Logout from all devices successful",
     });
   } catch (error) {
     logger.error("Logout failed:", error);
@@ -364,8 +339,17 @@ router.post("/logout/all-devices", async (req: Request, res: Response) => {
 // Validate token
 router.post("/validate", async (req: Request, res: Response) => {
   try {
-    const cookies = req.cookies;
-    const authToken = cookies[cookieNames.sessionToken];
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization token is required",
+      });
+    }
+
+    const authToken = authHeader.split(" ")[1];
 
     if (!authToken) {
       return res.status(401).json({

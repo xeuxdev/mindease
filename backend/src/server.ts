@@ -1,4 +1,3 @@
-import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -57,7 +56,6 @@ const limiter = rateLimit({
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser(jwtConfig.secret));
 app.use(
   cors({
     origin: serverConfig.corsOrigin,
