@@ -11,17 +11,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     },
   });
 
-  return redirect("/", {
+  return redirect("/auth/login", {
     headers: {
       "Set-Cookie": [
+        // Clear HTTP-only token
         cookieNames.session_token +
-          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Strict",
         cookieNames.hashedId +
-          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
-        cookieNames.email +
-          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+        cookieNames.email + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
         cookieNames.anonymous +
-          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly",
+          "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
       ].join(", "),
     },
   });

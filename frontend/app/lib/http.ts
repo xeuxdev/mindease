@@ -1,5 +1,6 @@
 import axios from "axios";
 import { logoutUser } from "~/api/auth";
+import { getToken } from "./get-token";
 
 export type ErrorData = {
   message: string;
@@ -10,6 +11,21 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "",
   withCredentials: true,
 });
+
+api.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Response interceptor to handle unauthorized responses
 api.interceptors.response.use(

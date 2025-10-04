@@ -3,7 +3,7 @@ import { useParams } from "react-router";
 import { io, Socket } from "socket.io-client";
 import { ChatInput } from "~/components/chat/chat-input";
 import { ChatMessages } from "~/components/chat/chat-messages";
-import { ChatMessageLoader, LoadingIndicator } from "~/components/ui/loaders";
+import { ChatMessageLoader } from "~/components/ui/loaders";
 
 interface Conversation {
   id: string;
