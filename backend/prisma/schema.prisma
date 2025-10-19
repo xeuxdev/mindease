@@ -22,6 +22,8 @@ model User {
 
     isDeletedAt DateTime? // For soft delete
 
+    @@index([email])
+    @@index([isAnonymous])
     @@map("users")
 }
 
@@ -35,6 +37,8 @@ model Session {
     // Relationships
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+    @@index([userId])
+    @@index([token])
     @@map("sessions")
 }
 
@@ -50,6 +54,8 @@ model Conversation {
     user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
     messages Message[]
 
+    @@index([userId])
+    @@index([isActive])
     @@map("conversations")
 }
 
@@ -64,6 +70,7 @@ model Message {
     // Relationships
     conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+    @@index([conversationId])
     @@map("messages")
 }
 
