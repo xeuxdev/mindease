@@ -73,7 +73,23 @@ async function main() {
     }),
   ]);
 
-  console.log(`✅ Created ${1 + anonymousUsers.length} users`);
+  // Create additional normal users
+  const additionalNormalUsers = await Promise.all(
+    Array.from({ length: 10 }, (_, i) =>
+      prisma.user.create({
+        data: {
+          id: crypto.randomUUID(),
+          email: `user${i + 1}@mindease.com`,
+          isAnonymous: false,
+          hashedId: `user${i + 1}_hashed_` + Date.now(),
+          password: hashedPassword,
+          isDeletedAt: null,
+        },
+      })
+    )
+  );
+
+  console.log(`✅ Created ${1 + anonymousUsers.length + additionalNormalUsers.length} users`);
 
   // Create sessions for users
   console.log("🔐 Creating sessions...");
@@ -509,8 +525,8 @@ async function main() {
   console.log("🎉 Database seeding completed successfully!");
   console.log("\n📊 Summary:");
   console.log(
-    `  • Users: ${1 + anonymousUsers.length} (1 admin, ${
-      anonymousUsers.length - 1
+    `  • Users: ${1 + anonymousUsers.length + additionalNormalUsers.length} (1 admin, ${
+      2 + 1 + additionalNormalUsers.length
     } active users, 1 soft-deleted)`
   );
   console.log(`  • Sessions: ${sessions.length}`);
@@ -522,6 +538,7 @@ async function main() {
   console.log("\n🔐 Test Credentials:");
   console.log("  Admin: admin@mindease.com / password123");
   console.log("  User: user@example.com / password123");
+  console.log("  Additional Users: user1@mindease.com to user10@mindease.com / password123");
   console.log(
     "  Soft-deleted User: deleted@example.com / password123 (should not be able to login)"
   );
