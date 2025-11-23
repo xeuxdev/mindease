@@ -4,6 +4,8 @@ import { io, Socket } from "socket.io-client";
 import { ChatInput } from "~/components/chat/chat-input";
 import { ChatMessages } from "~/components/chat/chat-messages";
 import { ChatMessageLoader } from "~/components/ui/loaders";
+import { CrisisModal } from "~/components/chat/crisis-modal";
+import type { CrisisDetectionResult } from "~/api/types";
 
 interface Conversation {
   id: string;
@@ -40,6 +42,9 @@ export default function ConversationPage() {
   );
   const [fetchingMessages, setFetchingMessages] = React.useState(true);
   const [waitForAIResponse, setWaitForAIResponse] = React.useState(false);
+  const [crisisData, setCrisisData] =
+    React.useState<CrisisDetectionResult | null>(null);
+  const [showCrisisModal, setShowCrisisModal] = React.useState(false);
 
   React.useEffect(() => {
     console.log("Connecting to socket:", socketUrl);
@@ -182,6 +187,13 @@ export default function ConversationPage() {
       }
     );
 
+    // Crisis detection event
+    newSocket.on("crisis_detected", (data: CrisisDetectionResult) => {
+      console.log("Crisis detected:", data);
+      setCrisisData(data);
+      setShowCrisisModal(true);
+    });
+
     // Listen for any unhandled events (for debugging)
     newSocket.onAny((event, ...args) => {
       console.log(`Received event: ${event}`, args);
@@ -241,6 +253,15 @@ export default function ConversationPage() {
 
       {/* Fixed input area */}
       <ChatInput isLoading={isLoading || !isConnected} onSend={handleSend} />
+
+      {/* Crisis Detection Modal */}
+      {crisisData && (
+        <CrisisModal
+          isOpen={showCrisisModal}
+          onClose={() => setShowCrisisModal(false)}
+          crisisData={crisisData}
+        />
+      )}
     </div>
   );
 }

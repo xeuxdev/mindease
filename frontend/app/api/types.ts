@@ -130,3 +130,35 @@ export type StartConversationResponse = {
     conversationId: string;
   };
 };
+
+// Crisis Detection Types
+export type CrisisSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export type CrisisResource = {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  contact?: string;
+  available?: string;
+  country: string;
+  priority: number;
+};
+
+export type CrisisDetectionResult = {
+  isCrisis: boolean;
+  severity?: CrisisSeverity;
+  keywords?: string[];
+  confidence?: number;
+  reason?: string;
+  resources?: CrisisResource[];
+};
+
+export type CrisisAlertEvent = {
+  conversationId: string;
+  messageId: string;
+  userId: string;
+  severity: CrisisSeverity;
+  resources: CrisisResource[];
+  timestamp: string;
+};

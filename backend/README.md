@@ -8,20 +8,21 @@ This is the backend service for MindEase, an AI-powered therapist chatbot design
 
 ## Features
 
-- 🤖 **AI-Powered Conversations**: Integration with OpenAI GPT-3.5 Turbo for therapeutic responses
+- 🤖 **AI-Powered Conversations**: Integration with OpenAI GPT or local LLM for therapeutic responses
 - 🔐 **Secure Authentication**: JWT-based auth with support for anonymous users
 - 💬 **Real-time Chat**: WebSocket support for real-time messaging
 - 🗄️ **Data Management**: Prisma ORM with PostgreSQL for reliable data storage
 - 📊 **Analytics & Monitoring**: Comprehensive logging and admin analytics
 - 🔒 **Privacy & Security**: End-to-end encryption, GDPR compliance features
 - 🚀 **Scalable Architecture**: Modular design with middleware and services
+- 🔄 **Flexible AI Providers**: Support for both OpenAI and local LLM providers
 
 ## Tech Stack
 
 - **Runtime**: Node.js with TypeScript
 - **Framework**: Express.js
 - **Database**: PostgreSQL with Prisma ORM
-- **AI**: OpenAI API (GPT-3.5 Turbo)
+- **AI**: OpenAI API or Local LLM (configurable)
 - **Real-time**: Socket.IO
 - **Authentication**: JWT
 - **Logging**: Winston
@@ -84,11 +85,31 @@ prisma/
    ```
    
    Update `.env` with your configuration:
+   
+   **For OpenAI:**
    ```env
    DATABASE_URL="postgresql://username:password@localhost:5432/mindease_db"
    JWT_SECRET=your_jwt_secret_key_here
+   ENCRYPTION_KEY=your_64_character_hex_encryption_key
+   
+   # AI Provider Configuration (OpenAI)
+   AI_PROVIDER=openai
    OPENAI_API_KEY=your_openai_api_key_here
-   ENCRYPTION_KEY=your_32_character_encryption_key_here
+   OPENAI_MODEL=gpt-3.5-turbo
+   # OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom endpoints
+   ```
+   
+   **For Local LLM:**
+   ```env
+   DATABASE_URL="postgresql://username:password@localhost:5432/mindease_db"
+   JWT_SECRET=your_jwt_secret_key_here
+   ENCRYPTION_KEY=your_64_character_hex_encryption_key
+   
+   # AI Provider Configuration (Local LLM)
+   AI_PROVIDER=local
+   LLM_API_KEY=your_local_llm_api_key
+   LLM_API_URL=http://localhost:11434/v1
+   LLM_MODEL=qwen/qwen3-4b
    ```
 
 4. **Database Setup**
@@ -243,18 +264,32 @@ docker-compose up -d
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
 | `NODE_ENV` | Environment (development/production) | No | development |
-| `PORT` | Server port | No | 3001 |
+| `PORT` | Server port | No | 3000 |
 | `DATABASE_URL` | PostgreSQL connection string | Yes | - |
 | `JWT_SECRET` | JWT signing secret | Yes | - |
-| `JWT_EXPIRES_IN` | JWT expiration time | No | 24h |
-| `OPENAI_API_KEY` | OpenAI API key | Yes | - |
+| `JWT_EXPIRES_IN` | JWT expiration time | No | 604800 |
+| `ENCRYPTION_KEY` | 64-character hex key for encryption | Yes | - |
+| `FRONTEND_URL` | Frontend URL for CORS | Yes | - |
+| **AI Provider Settings** | | | |
+| `AI_PROVIDER` | AI provider to use (openai/local) | No | local |
+| **OpenAI Settings** | | | |
+| `OPENAI_API_KEY` | OpenAI API key | Conditional* | - |
 | `OPENAI_MODEL` | OpenAI model to use | No | gpt-3.5-turbo |
-| `ENCRYPTION_KEY` | 32-byte hex key for encryption | Yes | - |
-| `FRONTEND_URL` | Frontend URL for CORS | No | http://localhost:3000 |
-| `ADMIN_SECRET` | Admin API access secret | No | - |
+| `OPENAI_BASE_URL` | Custom OpenAI endpoint | No | https://api.openai.com/v1 |
+| **Local LLM Settings** | | | |
+| `LLM_API_KEY` | Local LLM API key | Conditional* | - |
+| `LLM_API_URL` | Local LLM API URL | Conditional* | - |
+| `LLM_MODEL` | Local LLM model name | No | qwen/qwen3-4b |
+| **Other Settings** | | | |
+| `AI_MAX_TOKENS` | Max tokens per response | No | 1000 |
+| `AI_TEMPERATURE` | AI response temperature | No | 0.7 |
 | `LOG_LEVEL` | Logging level | No | info |
 | `RATE_LIMIT_WINDOW_MS` | Rate limit window | No | 900000 |
 | `RATE_LIMIT_MAX_REQUESTS` | Max requests per window | No | 100 |
+
+\* Required based on `AI_PROVIDER` selection:
+- If `AI_PROVIDER=openai`, then `OPENAI_API_KEY` is required
+- If `AI_PROVIDER=local`, then `LLM_API_KEY` and `LLM_API_URL` are required
 
 ## Contributing
 

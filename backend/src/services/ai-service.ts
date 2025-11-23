@@ -1,7 +1,10 @@
 import axios from "axios";
+import OpenAI from "openai";
 import { logger } from "../utils/logger";
 import { prisma } from "../config/database";
 import { aiConfig } from "../config/env";
+
+type AIProvider = "openai" | "local";
 
 interface AIResponse {
   content: string;
@@ -43,15 +46,66 @@ interface Message {
   timestamp: Date;
 }
 
+export enum CrisisSeverity {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  CRITICAL = "CRITICAL",
+}
+
+export interface CrisisDetectionResult {
+  isCrisis: boolean;
+  severity?: CrisisSeverity;
+  keywords?: string[];
+  confidence?: number;
+  reason?: string;
+}
+
+export interface CrisisResource {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  contact?: string;
+  available?: string;
+  country: string;
+  priority: number;
+}
+
 class AIService {
+  private provider: AIProvider;
   private apiKey: string;
   private model: string;
   private baseURL: string;
+  private openaiClient?: OpenAI;
 
   constructor() {
-    this.apiKey = aiConfig.llmApiKey;
-    this.model = aiConfig.model;
-    this.baseURL = aiConfig.llmApiUrl;
+    // Auto-detect provider based on available API keys
+    if (aiConfig.provider === "openai" && aiConfig.openaiApiKey) {
+      this.provider = "openai";
+      this.apiKey = aiConfig.openaiApiKey;
+      this.model = aiConfig.openaiModel;
+      this.baseURL = aiConfig.openaiBaseUrl || "https://api.openai.com/v1";
+      this.openaiClient = new OpenAI({
+        apiKey: this.apiKey,
+        baseURL: aiConfig.openaiBaseUrl,
+      });
+      logger.info("AI Service initialized with OpenAI provider", {
+        model: this.model,
+      });
+    } else if (aiConfig.llmApiKey && aiConfig.llmApiUrl) {
+      this.provider = "local";
+      this.apiKey = aiConfig.llmApiKey;
+      this.model = aiConfig.model;
+      this.baseURL = aiConfig.llmApiUrl;
+      logger.info("AI Service initialized with local LLM provider", {
+        model: this.model,
+      });
+    } else {
+      throw new Error(
+        "No AI provider configured. Set either OPENAI_API_KEY or LLM_API_KEY/LLM_API_URL"
+      );
+    }
   }
 
   async generateResponse(
@@ -67,66 +121,108 @@ class AIService {
         conversationHistory
       );
 
-      // Make API call to LLM
-      const response = await axios.post<AiAPIResponse>(
-        `${this.baseURL}/chat/completions`,
-        {
+      if (this.provider === "openai" && this.openaiClient) {
+        // Use OpenAI SDK
+        const response = await this.openaiClient.chat.completions.create({
           model: this.model,
-          messages,
-          max_tokens: 500,
+          messages: messages,
+          max_completion_tokens: 500,
           temperature: 0.7,
-          presence_penalty: 0.1,
-          frequency_penalty: 0.1,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            "Content-Type": "application/json",
+        });
+
+        const responseTime = Date.now() - startTime;
+
+        const content =
+          response.choices[0]?.message?.content?.trim() ||
+          "I apologize, but I couldn't generate a response. Please try again.";
+
+        const inputTokens = response.usage?.prompt_tokens || 0;
+        const outputTokens = response.usage?.completion_tokens || 0;
+        const tokens = response.usage?.total_tokens || 0;
+        const cost = this.calculateCost(inputTokens, outputTokens);
+
+        logger.info("AI response generated (OpenAI)", {
+          model: this.model,
+          tokens,
+          inputTokens,
+          outputTokens,
+          cost,
+          responseTime,
+          messageLength: userMessage.length,
+        });
+
+        return {
+          content,
+          tokens,
+          cost,
+          responseTime,
+          model: this.model,
+        };
+      } else {
+        // Use axios for local LLM
+        const response = await axios.post<AiAPIResponse>(
+          `${this.baseURL}/chat/completions`,
+          {
+            model: this.model,
+            messages,
+            max_tokens: 500,
+            temperature: 0.7,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1,
           },
-          timeout: 30000, // 30 seconds timeout
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 30000, // 30 seconds timeout
+          }
+        );
 
-      const responseTime = Date.now() - startTime;
+        const responseTime = Date.now() - startTime;
 
-      let content =
-        response.data.choices[0]?.message?.content
-          // Remove complete think blocks
-          ?.replace(/<think>[\s\S]*?<\/think>/g, "")
-          // Remove unclosed think tags and everything after them
-          ?.replace(/<think>[\s\S]*$/g, "")
-          // Remove any remaining think closing tags
-          ?.replace(/<\/think>/g, "")
-          // Remove leading newlines
-          ?.replace(/^\s*\n+/, "")
-          ?.trim() ||
-        "I apologize, but I couldn't generate a response. Please try again.";
+        let content =
+          response.data.choices[0]?.message?.content
+            // Remove complete think blocks (for local LLM)
+            ?.replace(/<think>[\s\S]*?<\/think>/g, "")
+            // Remove unclosed think tags and everything after them
+            ?.replace(/<think>[\s\S]*$/g, "")
+            // Remove any remaining think closing tags
+            ?.replace(/<\/think>/g, "")
+            // Remove leading newlines
+            ?.replace(/^\s*\n+/, "")
+            ?.trim() ||
+          "I apologize, but I couldn't generate a response. Please try again.";
 
-      const tokens = response.data.usage?.total_tokens || 0;
-      const cost = this.calculateCost(tokens);
+        const tokens = response.data.usage?.total_tokens || 0;
+        const cost = this.calculateCost(tokens, tokens); // Simplified cost calculation
 
-      logger.info("AI response generated", {
-        model: this.model,
-        tokens,
-        cost,
-        responseTime,
-        messageLength: userMessage.length,
-      });
+        logger.info("AI response generated (Local LLM)", {
+          model: this.model,
+          tokens,
+          cost,
+          responseTime,
+          messageLength: userMessage.length,
+        });
 
-      return {
-        content,
-        tokens,
-        cost,
-        responseTime,
-        model: this.model,
-      };
+        return {
+          content,
+          tokens,
+          cost,
+          responseTime,
+          model: this.model,
+        };
+      }
     } catch (error) {
       const responseTime = Date.now() - startTime;
+
+      console.log(error);
 
       logger.error("AI response generation failed:", {
         error: error instanceof Error ? error.message : "Unknown error",
         responseTime,
         model: this.model,
+        provider: this.provider,
       });
 
       // Return fallback response
@@ -173,7 +269,60 @@ class AIService {
         conversationHistory
       );
 
-      // Stream response from OpenAI
+      if (this.provider === "openai" && this.openaiClient) {
+        // Use OpenAI SDK for streaming
+        await this.streamOpenAI(messages, onChunk);
+      } else {
+        // Use axios for local LLM streaming
+        await this.streamLocalLLM(messages, onChunk);
+      }
+    } catch (error) {
+      logger.error("AI stream response failed:", error);
+      onChunk({
+        type: "error",
+        message:
+          "I apologize, but I'm experiencing some technical difficulties right now.",
+      });
+    }
+  }
+
+  private async streamOpenAI(
+    messages: any[],
+    onChunk: (chunk: any) => void
+  ): Promise<void> {
+    try {
+      const stream = await this.openaiClient!.chat.completions.create({
+        model: this.model,
+        messages: messages,
+        max_completion_tokens: 500,
+        temperature: 0.7,
+        stream: true,
+      });
+
+      let fullContent = "";
+
+      for await (const chunk of stream) {
+        const deltaContent = chunk.choices[0]?.delta?.content;
+
+        if (deltaContent) {
+          fullContent += deltaContent;
+          onChunk({ type: "chunk", content: deltaContent });
+        }
+      }
+
+      onChunk({ type: "complete", content: fullContent });
+    } catch (error) {
+      logger.error("OpenAI streaming error:", error);
+      throw error;
+    }
+  }
+
+  private async streamLocalLLM(
+    messages: any[],
+    onChunk: (chunk: any) => void
+  ): Promise<void> {
+    try {
+      // Stream response from local LLM
       const response = await axios.post(
         `${this.baseURL}/chat/completions`,
         {
@@ -202,17 +351,6 @@ class AIService {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
-
-            // if (data === "[DONE]") {
-            //   let cleanContent = fullContent
-            //     .replace(/<think>[\s\S]*?<\/think>/g, "")
-            //     .replace(/<think>[\s\S]*$/g, "")
-            //     .replace(/<\/think>/g, "")
-            //     .replace(/^\s*\n+/, "")
-            //     .trim();
-            //   onChunk({ type: "done", content: cleanContent });
-            //   return;
-            // }
 
             try {
               const parsed = JSON.parse(data);
@@ -261,12 +399,8 @@ class AIService {
         onChunk({ type: "complete", content: cleanContent });
       });
     } catch (error) {
-      logger.error("AI stream response failed:", error);
-      onChunk({
-        type: "error",
-        message:
-          "I apologize, but I'm experiencing some technical difficulties right now.",
-      });
+      logger.error("Local LLM streaming error:", error);
+      throw error;
     }
   }
 
@@ -274,29 +408,29 @@ class AIService {
     userMessage: string,
     conversationHistory: Message[]
   ): any[] {
-    //     const systemPrompt = {
-    //       role: "system",
-    //       content: `You are a compassionate AI therapist chatbot designed to provide emotional support and guidance.
+    const systemPrompt = {
+      role: "system",
+      content: `You are a compassionate AI therapist chatbot designed to provide emotional support and guidance.
 
-    // Key guidelines:
-    // - Always respond with empathy and understanding
-    // - Ask thoughtful follow-up questions to encourage reflection
-    // - Provide coping strategies and techniques when appropriate
-    // - Maintain professional boundaries - you are not a replacement for professional therapy
-    // - If someone expresses suicidal thoughts or immediate danger, encourage them to seek professional help
-    // - Keep responses concise but meaningful (under 200 words)
-    // - Use active listening techniques in your responses
-    // - Validate the user's feelings and experiences
-    // - Respond politely to users thanks and other positive experiences responses
-    // - Encourage users to share their thoughts and feelings openly, without fear of judgment.
+Key guidelines:
+- Always respond with empathy and understanding
+- Ask thoughtful follow-up questions to encourage reflection
+- Provide coping strategies and techniques when appropriate
+- Maintain professional boundaries - you are not a replacement for professional therapy
+- If someone expresses suicidal thoughts or immediate danger, encourage them to seek professional help
+- Keep responses concise but meaningful (under 200 words)
+- Use active listening techniques in your responses
+- Validate the user's feelings and experiences
+- Respond politely to users thanks and other positive experiences responses
+- Encourage users to share their thoughts and feelings openly, without fear of judgment.
 
-    // Remember: You are here to listen, support, and guide, not to diagnose or provide medical advice.`,
-    //     };
+Remember: You are here to listen, support, and guide, not to diagnose or provide medical advice.`,
+    };
 
-    // const messages = [systemPrompt];
-    let messages = [];
+    // OpenAI benefits from system prompts, local LLM might not use them
+    let messages = this.provider === "openai" ? [systemPrompt] : [];
 
-    // Add conversation history (last 5 exchanges to manage token usage)
+    // Add conversation history (last 10 exchanges to manage token usage)
     const recentHistory = conversationHistory.slice(-10);
     for (const msg of recentHistory) {
       messages.push({
@@ -311,34 +445,335 @@ class AIService {
       content: userMessage,
     });
 
-    // to disable thinking
-    messages.push({
-      role: "user",
-      content: "/no_think",
-    });
+    // Only add /no_think for local LLM
+    if (this.provider === "local") {
+      messages.push({
+        role: "user",
+        content: "/no_think",
+      });
+    }
 
     return messages;
   }
 
-  private calculateCost(tokens: number): number {
-    // GPT-3.5-turbo pricing (as of 2024)
-    const costPerToken = 0.0000015; // $0.0015 per 1K tokens
-    return tokens * costPerToken;
+  private crisisKeywords = [
+    "suicide",
+    "suicidal",
+    "kill myself",
+    "end my life",
+    "want to die",
+    "better off dead",
+    "no reason to live",
+    "self-harm",
+    "hurt myself",
+    "cutting",
+    "overdose",
+    "jump off",
+    "hanging",
+    "gun",
+    "pills",
+    "razor",
+    "abuse",
+    "violent",
+    "emergency",
+    "crisis",
+  ];
+
+  /**
+   * Analyzes a message for crisis indicators using AI
+   */
+  async detectCrisis(message: string): Promise<CrisisDetectionResult> {
+    try {
+      // Quick keyword scan first
+      const containsCrisisKeyword = this.quickKeywordScan(message);
+
+      if (!containsCrisisKeyword) {
+        return { isCrisis: false };
+      }
+
+      // Perform deep AI analysis
+      const aiAnalysis = await this.aiCrisisAnalysis(message);
+
+      return aiAnalysis;
+    } catch (error) {
+      logger.error("Crisis detection failed:", error);
+      // Fail-safe: if there are critical keywords, flag as potential crisis
+      if (this.containsCriticalKeywords(message)) {
+        return {
+          isCrisis: true,
+          severity: CrisisSeverity.HIGH,
+          keywords: this.extractKeywords(message),
+          confidence: 0.7,
+          reason: "Detected critical keywords (AI analysis failed)",
+        };
+      }
+      return { isCrisis: false };
+    }
   }
 
-  // Test OpenAI connection
-  async testConnection(): Promise<boolean> {
+  /**
+   * Use AI to perform deep crisis analysis
+   */
+  async aiCrisisAnalysis(message: string): Promise<CrisisDetectionResult> {
     try {
-      const response = await axios.get(`${this.baseURL}/models`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
+      const systemPrompt = `You are a crisis detection AI. Analyze the following message and determine if it indicates a mental health crisis.
+
+Respond ONLY with a valid JSON object in this exact format:
+{
+  "isCrisis": boolean,
+  "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "confidence": number between 0 and 1,
+  "reason": "brief explanation"
+}
+
+Severity levels:
+- LOW: Mild distress, no immediate danger
+- MEDIUM: Moderate distress, some concerning thoughts
+- HIGH: Severe distress, thoughts of self-harm
+- CRITICAL: Immediate danger, active suicidal ideation or plan
+
+Message to analyze: "${message}"`;
+
+      const response = await axios.post(
+        `${this.baseURL}/chat/completions`,
+        {
+          model: this.model,
+          messages: [
+            {
+              role: "user",
+              content: systemPrompt,
+            },
+          ],
+          max_tokens: 200,
+          temperature: 0.3, // Lower temperature for more consistent analysis
         },
-        timeout: 5000,
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+
+      const aiResponse = response.data.choices[0]?.message?.content || "{}";
+
+      // Clean the response (remove think tags and extract JSON)
+      let cleanedResponse = aiResponse
+        .replace(/<think>[\s\S]*?<\/think>/g, "")
+        .replace(/<think>[\s\S]*$/g, "")
+        .replace(/<\/think>/g, "")
+        .trim();
+
+      // Extract JSON from response if it's wrapped in markdown code blocks
+      const jsonMatch =
+        cleanedResponse.match(/```json\s*([\s\S]*?)\s*```/) ||
+        cleanedResponse.match(/```\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[1].trim();
+      }
+
+      const analysis = JSON.parse(cleanedResponse);
+
+      return {
+        isCrisis: analysis.isCrisis || false,
+        severity: analysis.severity || CrisisSeverity.LOW,
+        confidence: analysis.confidence || 0.5,
+        reason: analysis.reason || "AI analysis completed",
+        keywords: this.extractKeywords(message),
+      };
+    } catch (error) {
+      logger.error("AI crisis analysis failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Quick keyword scan to filter out obviously safe messages
+   */
+  private quickKeywordScan(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+    return this.crisisKeywords.some((keyword) =>
+      lowerMessage.includes(keyword)
+    );
+  }
+
+  /**
+   * Check for critical keywords that warrant immediate attention
+   */
+  private containsCriticalKeywords(message: string): boolean {
+    const criticalKeywords = [
+      "kill myself",
+      "end my life",
+      "suicide",
+      "want to die",
+    ];
+    const lowerMessage = message.toLowerCase();
+    return criticalKeywords.some((keyword) => lowerMessage.includes(keyword));
+  }
+
+  /**
+   * Extract matched keywords from message
+   */
+  private extractKeywords(message: string): string[] {
+    const lowerMessage = message.toLowerCase();
+    return this.crisisKeywords.filter((keyword) =>
+      lowerMessage.includes(keyword)
+    );
+  }
+
+  /**
+   * Log a crisis alert to the database
+   */
+  async logCrisisAlert(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+    detectionResult: CrisisDetectionResult
+  ): Promise<void> {
+    try {
+      await prisma.crisisAlert.create({
+        data: {
+          userId,
+          conversationId,
+          messageId,
+          severity: detectionResult.severity || CrisisSeverity.MEDIUM,
+          keywords: detectionResult.keywords || [],
+          context: `Confidence: ${detectionResult.confidence || 0}, Reason: ${
+            detectionResult.reason || "N/A"
+          }`,
+        },
       });
 
-      return response.status === 200;
+      logger.warn("Crisis alert logged", {
+        userId,
+        conversationId,
+        messageId,
+        severity: detectionResult.severity,
+        confidence: detectionResult.confidence,
+      });
     } catch (error) {
-      logger.error("OpenAI connection test failed:", error);
+      logger.error("Failed to log crisis alert:", error);
+    }
+  }
+
+  /**
+   * Get crisis resources based on severity
+   */
+  async getCrisisResources(
+    severity: CrisisSeverity,
+    country: string = "NG"
+  ): Promise<CrisisResource[]> {
+    try {
+      const resources = await prisma.crisisResource.findMany({
+        where: {
+          isActive: true,
+          OR: [{ country: country }],
+        },
+        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+        take: severity === CrisisSeverity.CRITICAL ? 10 : 5,
+      });
+
+      return resources.map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        description: resource.description,
+        type: resource.type,
+        contact: resource.contact || undefined,
+        available: resource.available || undefined,
+        country: resource.country,
+        priority: resource.priority,
+      }));
+    } catch (error) {
+      logger.error("Failed to get crisis resources:", error);
+      return this.getDefaultCrisisResources();
+    }
+  }
+
+  /**
+   * Fallback crisis resources if database query fails (Nigeria-focused)
+   */
+  private getDefaultCrisisResources(): CrisisResource[] {
+    return [
+      {
+        id: "default-1",
+        title: "SURPIN Helpline Nigeria",
+        description:
+          "24-hour suicide prevention hotline offering counselling and support",
+        type: "hotline",
+        contact: "080 0078 7746",
+        available: "24/7",
+        country: "NG",
+        priority: 100,
+      },
+      {
+        id: "default-2",
+        title: "Asido Foundation Psychological Helpline",
+        description: "Provides psychological First Aid to people in distress",
+        type: "hotline",
+        contact: "+234 902 808 0416",
+        available: "24/7",
+        country: "NG",
+        priority: 95,
+      },
+      {
+        id: "default-3",
+        title: "Mentally Aware Nigeria Initiative (MANI)",
+        description:
+          "Free and confidential mental health support over the phone",
+        type: "hotline",
+        contact: "0809 111 6264",
+        available: "Mon-Sat 9AM-5PM",
+        country: "NG",
+        priority: 85,
+      },
+      {
+        id: "default-4",
+        title: "Emergency Services Nigeria",
+        description: "For immediate life-threatening emergencies",
+        type: "emergency",
+        contact: "112 or 199",
+        available: "24/7",
+        country: "NG",
+        priority: 100,
+      },
+    ];
+  }
+
+  private calculateCost(inputTokens: number, outputTokens: number): number {
+    const OPENAI_INPUT_COST = 0.25 / 1_000_000; // $0.25 per 1M input tokens
+    const OPENAI_OUTPUT_COST = 2.0 / 1_000_000; // $2.00 per 1M output tokens
+    const LOCAL_TOKEN_COST = 0.0000001; // nominal local cost
+
+    if (this.provider === "openai") {
+      return (
+        inputTokens * OPENAI_INPUT_COST + outputTokens * OPENAI_OUTPUT_COST
+      );
+    } else {
+      // local LLM
+      return (inputTokens + outputTokens) * LOCAL_TOKEN_COST;
+    }
+  }
+
+  // Test AI provider connection
+  async testConnection(): Promise<boolean> {
+    try {
+      if (this.provider === "openai" && this.openaiClient) {
+        // Test OpenAI connection
+        const models = await this.openaiClient.models.list();
+        return models.data.length > 0;
+      } else {
+        // Test local LLM connection
+        const response = await axios.get(`${this.baseURL}/models`, {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          timeout: 5000,
+        });
+        return response.status === 200;
+      }
+    } catch (error) {
+      logger.error(`${this.provider} connection test failed:`, error);
       return false;
     }
   }

@@ -25,9 +25,17 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("604800"), // 7 days in seconds
 
   // External API keys
-  LLM_API_KEY: z.string(),
-  LLM_API_URL: z.string().url("LLM_API_URL must be a valid URL"),
+  LLM_API_KEY: z.string().optional(),
+  LLM_API_URL: z.string().url("LLM_API_URL must be a valid URL").optional(),
   LLM_MODEL: z.string().default("qwen/qwen3-4b"),
+
+  // OpenAI configuration
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default("gpt-5-mini"),
+  OPENAI_BASE_URL: z.string().url().optional(),
+
+  // AI Provider selection
+  AI_PROVIDER: z.enum(["openai", "local"]).default("local"),
 
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z
@@ -174,9 +182,13 @@ export const rateLimitConfig = {
 } as const;
 
 export const aiConfig = {
+  provider: env.AI_PROVIDER,
   llmApiKey: env.LLM_API_KEY,
   llmApiUrl: env.LLM_API_URL,
   model: env.LLM_MODEL,
+  openaiApiKey: env.OPENAI_API_KEY,
+  openaiModel: env.OPENAI_MODEL,
+  openaiBaseUrl: env.OPENAI_BASE_URL,
   maxTokens: env.AI_MAX_TOKENS,
   temperature: env.AI_TEMPERATURE,
 } as const;

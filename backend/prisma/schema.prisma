@@ -110,6 +110,41 @@ model ApiUsage {
     @@map("api_usage")
 }
 
+model CrisisAlert {
+    id             String         @id @default(uuid())
+    userId         String
+    conversationId String
+    messageId      String
+    severity       CrisisSeverity
+    keywords       String[] // Keywords that triggered the alert
+    context        String // The message content that triggered the alert
+    resolved       Boolean        @default(false)
+    resolvedAt     DateTime?
+    createdAt      DateTime       @default(now())
+
+    @@index([userId])
+    @@index([conversationId])
+    @@map("crisis_alerts")
+}
+
+model CrisisResource {
+    id          String   @id @default(uuid())
+    title       String
+    description String
+    type        String // e.g., "hotline", "website", "emergency"
+    contact     String? // Phone number or URL
+    available   String? // e.g., "24/7", "9 AM - 5 PM"
+    country     String   @default("NG") // Default to Nigeria
+    priority    Int      @default(0) // Higher priority resources shown first
+    isActive    Boolean  @default(true)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([country])
+    @@index([type])
+    @@map("crisis_resources")
+}
+
 enum MessageRole {
     USER
     ASSISTANT
@@ -121,4 +156,11 @@ enum LogLevel {
     WARN
     INFO
     DEBUG
+}
+
+enum CrisisSeverity {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
 }

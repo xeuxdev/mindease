@@ -4,7 +4,7 @@ import { cookieNames } from "../config/constants";
 import { prisma } from "../config/database";
 import { env, jwtConfig } from "../config/env";
 import { logger } from "../utils/logger";
-import { aiService } from "./ai-service";
+import { aiService, CrisisSeverity } from "./ai-service";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -47,6 +47,7 @@ export function setupWebSocket(io: SocketIOServer) {
    * - ai_chunk: Streaming chunk of AI response (expects: { conversationId: string, content: string, fullContent: string })
    * - ai_stopped_typing: AI finished generating response
    * - ai_response_complete: AI response fully generated and saved
+   * - crisis_detected: Crisis detected in user message (expects: { conversationId: string, messageId: string, severity: string, confidence: number, reason: string, resources: CrisisResource[] })
    * - conversations_list: List of conversations
    * - conversation_messages: Messages in a conversation
    * - user_typing: Another user is typing
@@ -184,6 +185,63 @@ export function setupWebSocket(io: SocketIOServer) {
             timestamp: userMessage.timestamp,
           },
         });
+
+        // **CRISIS DETECTION** - Run asynchronously (non-blocking)
+        // This runs in the background and doesn't delay the AI response
+        (async () => {
+          try {
+            logger.info("Starting crisis detection", {
+              userId: socket.userId,
+              conversationId: conversation.id,
+              messageId: userMessage.id,
+            });
+
+            const crisisResult = await aiService.detectCrisis(message);
+
+            if (crisisResult.isCrisis) {
+              logger.warn("Crisis detected in message", {
+                userId: socket.userId,
+                conversationId: conversation.id,
+                messageId: userMessage.id,
+                severity: crisisResult.severity,
+                confidence: crisisResult.confidence,
+              });
+
+              // Log crisis alert to database
+              await aiService.logCrisisAlert(
+                socket.userId!,
+                conversation.id,
+                userMessage.id,
+                crisisResult
+              );
+
+              // Get crisis resources based on severity (Nigeria)
+              const resources = await aiService.getCrisisResources(
+                crisisResult.severity || CrisisSeverity.MEDIUM,
+                "NG"
+              );
+
+              // Emit crisis alert to client
+              socket.emit("crisis_detected", {
+                conversationId: conversation.id,
+                messageId: userMessage.id,
+                severity: crisisResult.severity,
+                confidence: crisisResult.confidence,
+                reason: crisisResult.reason,
+                resources: resources,
+              });
+
+              logger.info("Crisis resources sent to client", {
+                userId: socket.userId,
+                conversationId: conversation.id,
+                resourceCount: resources.length,
+              });
+            }
+          } catch (error) {
+            logger.error("Crisis detection error (non-blocking):", error);
+            // Don't emit error to client as this is a background process
+          }
+        })();
 
         // Start typing indicator
         socket.emit("ai_typing", { conversationId: conversation.id });
