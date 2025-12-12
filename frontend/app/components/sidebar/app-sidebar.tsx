@@ -1,4 +1,4 @@
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, XIcon } from "lucide-react";
 import * as React from "react";
 
 import { Link } from "react-router";
@@ -13,19 +13,32 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  useSidebar,
 } from "~/components/ui/sidebar";
 import { ConversationsList } from "../chat/conversations-list";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const { toggleSidebar } = useSidebar();
 
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-sidebar-foreground">
-            MindEase
-          </h2>
+          <div className="flex items-center justify-between gap-5">
+            <h2 className="text-lg font-semibold text-sidebar-foreground">
+              MindEase
+            </h2>
+
+            <Button
+              variant={"outline"}
+              size={"sm"}
+              className="md:hidden"
+              onClick={toggleSidebar}
+            >
+              <XIcon />
+            </Button>
+          </div>
 
           <Button variant={"ghost"} className="w-full justify-start" asChild>
             <Link to={"/"}>

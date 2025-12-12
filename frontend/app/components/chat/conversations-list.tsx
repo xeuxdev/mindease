@@ -29,11 +29,14 @@ import {
 import { Input } from "~/components/ui/input";
 import { Skeleton } from "~/components/ui/skeleton";
 import { formatDateTime } from "~/lib/utils";
-import { SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
+import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "../ui/sidebar";
+import { useIsMobile } from "~/hooks/use-mobile";
 
 export function ConversationsList({ searchQuery }: { searchQuery: string }) {
   const { id: conversationId } = useParams();
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
+  const isMobile = useIsMobile();
 
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -162,7 +165,12 @@ export function ConversationsList({ searchQuery }: { searchQuery: string }) {
               className={`w-full h-auto p-0 hover:bg-sidebar-accent/50 transition-colors ${
                 conversationId === conversation.id ? "bg-sidebar-accent" : ""
               }`}
-              onClick={() => navigate(`/c/${conversation.id}`)}
+              onClick={() => {
+                navigate(`/c/${conversation.id}`);
+                if (isMobile) {
+                  toggleSidebar();
+                }
+              }}
               isActive={conversationId === conversation.id}
               asChild
             >

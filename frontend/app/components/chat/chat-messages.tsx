@@ -1,4 +1,4 @@
-import { Bot, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Bot, ThumbsDown, ThumbsUp } from "lucide-react";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -6,7 +6,8 @@ import remarkGfm from "remark-gfm";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { formatTime, showSuccessToast } from "~/lib/utils";
+import { formatTime } from "~/lib/utils";
+import CopyButton from "../copy-button";
 import { TypingIndicator } from "./typing-indicator";
 
 export function ChatMessages({
@@ -38,25 +39,19 @@ export function ChatMessages({
     scrollToBottom();
   }, [messages]);
 
-  const copyToClipboard = (content: string) => {
-    navigator.clipboard.writeText(content).then(() => {
-      showSuccessToast("Copied to clipboard");
-    });
-  };
-
   return (
     <div className="flex-1 overflow-hidden">
       <ScrollArea ref={scrollAreaRef} className="h-full">
-        <div className="space-y-6 max-w-4xl mx-auto p-4">
+        <div className="space-y-6 max-w-4xl mx-auto p-2 sm:p-4">
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-4 ${
+              className={`flex gap-2 sm:gap-4 ${
                 message.role === "USER" ? "justify-end" : "justify-start"
               }`}
             >
               {message.role === "ASSISTANT" && (
-                <Avatar className="h-8 w-8 shrink-0">
+                <Avatar className="h-8 w-8 shrink-0 max-sm:hidden">
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
@@ -64,12 +59,12 @@ export function ChatMessages({
               )}
 
               <div
-                className={`flex flex-col gap-2 max-w-[80%] ${
+                className={`flex flex-col gap-2 w-full max-w-full md:max-w-[80%] ${
                   message.role === "USER" ? "items-end" : "items-start"
                 }`}
               >
                 <div
-                  className={`rounded-lg px-4 py-3 ${
+                  className={`rounded-lg px-2 sm:px-4 py-3 ${
                     message.role === "USER" ? "bg-muted ml-auto" : ""
                   }`}
                 >
@@ -115,14 +110,7 @@ export function ChatMessages({
                   <span>{formatTime(message.timestamp)}</span>
                   {message.role === "ASSISTANT" && (
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => copyToClipboard(message.content)}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                      <CopyButton content={message.content} />
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
                         <ThumbsUp className="h-3 w-3" />
                       </Button>

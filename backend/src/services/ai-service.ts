@@ -400,7 +400,11 @@ class AIService {
       });
     } catch (error) {
       logger.error("Local LLM streaming error:", error);
-      throw error;
+      onChunk({
+        type: "error",
+        message:
+          "I apologize, but I'm experiencing some technical difficulties right now.",
+      });
     }
   }
 

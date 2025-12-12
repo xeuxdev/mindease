@@ -33,9 +33,6 @@ export default function AppLayout() {
                 orientation="vertical"
                 className="mr-2 data-[orientation=vertical]:h-4"
               />
-              <div className="flex items-center gap-2">
-                <h1 className="font-semibold">AI Assistant</h1>
-              </div>
             </div>
           </header>
           <div className="flex-1 overflow-hidden">

@@ -30,7 +30,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="max-w-3xl mx-auto w-full">
+    <div className="max-w-3xl mx-auto w-full max-md:px-2">
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <Textarea
@@ -38,7 +38,7 @@ export function ChatInput({
             onChange={handleInputChange}
             onKeyDown={handleKeyPress}
             placeholder="Type your message here..."
-            className="min-h-[60px] resize-none pr-12 max-h-32"
+            className="min-h-[60px] resize-none pr-12 max-h-32 placeholder:text-sm"
             disabled={isLoading}
           />
           <Button
@@ -51,7 +51,7 @@ export function ChatInput({
           </Button>
         </div>
       </div>
-      <div className="text-xs text-muted-foreground mt-2 text-center">
+      <div className="text-xs text-muted-foreground mt-2 text-center max-md:hidden">
         Press Enter to send, Shift + Enter for new line
       </div>
     </div>

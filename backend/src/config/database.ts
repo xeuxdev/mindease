@@ -1,23 +1,31 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../generated/prisma/client";
 import { logger } from "../utils/logger";
-import { env, isDevelopment } from "./env";
+import { isDevelopment } from "./env";
+
+const connectionString = `${process.env.DATABASE_URL}`;
+
+const adapter = new PrismaPg({
+  connectionString,
+});
 
 const prisma = new PrismaClient({
+  adapter,
   log: [
     {
       emit: "event",
       level: "query",
     },
     {
-      emit: "event",
+      emit: "stdout",
       level: "error",
     },
     {
-      emit: "event",
+      emit: "stdout",
       level: "info",
     },
     {
-      emit: "event",
+      emit: "stdout",
       level: "warn",
     },
   ],

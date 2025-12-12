@@ -163,9 +163,33 @@ export default function ConversationPage() {
     // Error handling
     newSocket.on("error", (error) => {
       console.error("Socket error:", error);
-      setConnectionError(`Error: ${error.message || error}`);
+      const errorMessage =
+        typeof error === "string"
+          ? error
+          : error?.message || "An error occurred while processing your message";
+      setConnectionError(errorMessage);
       setIsLoading(false);
+      setWaitForAIResponse(false);
     });
+
+    // AI response error (when backend has error generating response)
+    newSocket.on(
+      "ai_error",
+      (data: { error: string; conversationId?: string }) => {
+        console.error("AI generation error:", data);
+        setConnectionError(data.error || "Failed to generate response");
+        setIsLoading(false);
+        setWaitForAIResponse(false);
+        // Mark streaming message as failed
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.isStreaming && msg.role === "ASSISTANT"
+              ? { ...msg, isStreaming: false }
+              : msg
+          )
+        );
+      }
+    );
 
     // Get conversation messages
     newSocket.on(
@@ -229,30 +253,52 @@ export default function ConversationPage() {
     });
   };
 
-  // const reconnect = () => {
-  //   if (socket) {
-  //     socket.connect();
-  //   }
-  // };
+  const reconnect = () => {
+    setConnectionError(null);
+    setIsLoading(false);
+    setWaitForAIResponse(false);
+    if (socket) {
+      socket.connect();
+    }
+  };
 
   if (fetchingMessages) {
     return <ChatMessageLoader />;
   }
 
+  const hasError = connectionError !== null;
+
   return (
     <div className="flex flex-col h-full">
-      {/* {!isConnected && (
-        <div className="bg-red-50 border-b border-red-200 p-2">
-          <div className="flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+      {/* Error Banner */}
+      {hasError && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-900 text-sm">
+                  Connection Error
+                </h3>
+                <p className="text-red-700 text-sm mt-1">{connectionError}</p>
+              </div>
+              <button
+                onClick={reconnect}
+                className="text-red-700 hover:text-red-900 font-medium text-sm whitespace-nowrap ml-2"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         </div>
-      )} */}
+      )}
 
       <ChatMessages isLoading={waitForAIResponse} messages={messages} />
 
       {/* Fixed input area */}
-      <ChatInput isLoading={isLoading || !isConnected} onSend={handleSend} />
+      <ChatInput
+        isLoading={isLoading || !isConnected || hasError}
+        onSend={handleSend}
+      />
 
       {/* Crisis Detection Modal */}
       {crisisData && (
