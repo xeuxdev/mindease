@@ -126,8 +126,8 @@ class AIService {
         const response = await this.openaiClient.chat.completions.create({
           model: this.model,
           messages: messages,
-          max_completion_tokens: 500,
-          temperature: 0.7,
+          max_completion_tokens: 1500,
+          temperature: 1,
         });
 
         const responseTime = Date.now() - startTime;
@@ -294,8 +294,8 @@ class AIService {
       const stream = await this.openaiClient!.chat.completions.create({
         model: this.model,
         messages: messages,
-        max_completion_tokens: 500,
-        temperature: 0.7,
+        max_completion_tokens: 1500,
+        temperature: 1,
         stream: true,
       });
 
