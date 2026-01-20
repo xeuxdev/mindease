@@ -1,7 +1,21 @@
-import { PrismaClient, MessageRole, LogLevel } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import {
+  PrismaClient,
+  MessageRole,
+  LogLevel,
+} from "../generated/prisma/client";
+
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+const connectionString = `${process.env.DATABASE_URL}`;
+
+const adapter = new PrismaPg({
+  connectionString,
+});
+
+const prisma = new PrismaClient({
+  adapter,
+});
 
 async function main() {
   console.log("🌱 Starting database seeding...");
@@ -85,14 +99,14 @@ async function main() {
           password: hashedPassword,
           isDeletedAt: null,
         },
-      })
-    )
+      }),
+    ),
   );
 
   console.log(
     `✅ Created ${
       1 + anonymousUsers.length + additionalNormalUsers.length
-    } users`
+    } users`,
   );
 
   // Create sessions for users
@@ -520,8 +534,8 @@ async function main() {
           responseTime: usage.responseTime,
           timestamp: new Date(Date.now() - 60000 * (90 - index * 8)), // Spread over the last 90 minutes
         },
-      })
-    )
+      }),
+    ),
   );
 
   console.log(`✅ Created ${apiUsageLogs.length} API usage logs`);
@@ -754,7 +768,7 @@ async function main() {
       1 + anonymousUsers.length + additionalNormalUsers.length
     } (1 admin, ${
       2 + 1 + additionalNormalUsers.length
-    } active users, 1 soft-deleted)`
+    } active users, 1 soft-deleted)`,
   );
   console.log(`  • Sessions: ${sessions.length}`);
   console.log(`  • Conversations: ${conversations.length}`);
@@ -767,10 +781,10 @@ async function main() {
   console.log("  Admin: admin@mindease.com / password123");
   console.log("  User: user@example.com / password123");
   console.log(
-    "  Additional Users: user1@mindease.com to user10@mindease.com / password123"
+    "  Additional Users: user1@mindease.com to user10@mindease.com / password123",
   );
   console.log(
-    "  Soft-deleted User: deleted@example.com / password123 (should not be able to login)"
+    "  Soft-deleted User: deleted@example.com / password123 (should not be able to login)",
   );
 }
 
