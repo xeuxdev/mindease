@@ -60,7 +60,7 @@ app.use(
   cors({
     origin: serverConfig.corsOrigin,
     credentials: true,
-  })
+  }),
 );
 app.use(limiter);
 app.use(express.json({ limit: `${env.MAX_FILE_SIZE}b` }));
@@ -98,7 +98,7 @@ async function startServer() {
     server.listen(serverConfig.port, () => {
       logger.info(`🚀 Server running on port ${serverConfig.port}`);
       logger.info(
-        `📊 Health check available at http://localhost:${serverConfig.port}/api/health`
+        `📊 Health check available at http://localhost:${serverConfig.port}/api/health`,
       );
       logger.info(`🌍 Environment: ${serverConfig.nodeEnv}`);
     });
@@ -125,6 +125,11 @@ process.on("SIGINT", () => {
   });
 });
 
-startServer();
+// Only start the server if we're not in a serverless environment (checking for Vercel)
+// Vercel exports the app and manages the server itself
+if (!process.env.VERCEL) {
+  startServer();
+}
 
+export default app;
 export { app, io };
