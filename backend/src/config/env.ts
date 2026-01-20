@@ -91,11 +91,6 @@ const envSchema = z.object({
   // Admin configuration
   ADMIN_EMAIL: z.string().email().optional(),
   ADMIN_PASSWORD: z.string().min(8).optional(),
-
-  // Encryption key for sensitive data
-  ENCRYPTION_KEY: z
-    .string()
-    .length(64, "ENCRYPTION_KEY must be a 64-character hex string (32 bytes)"),
 });
 
 // Validate environment variables
