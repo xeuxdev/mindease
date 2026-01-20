@@ -125,11 +125,6 @@ process.on("SIGINT", () => {
   });
 });
 
-// Only start the server if we're not in a serverless environment (checking for Vercel)
-// Vercel exports the app and manages the server itself
-if (!process.env.VERCEL) {
-  startServer();
-}
+startServer();
 
-export default app;
 export { app, io };

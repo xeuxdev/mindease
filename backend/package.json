@@ -2,11 +2,11 @@
   "name": "mindease-backend",
   "version": "1.0.0",
   "description": "AI-Powered Therapist Chatbot Backend",
-  "main": "dist/src/server.js",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
     "build": "tsc",
-    "start": "node dist/src/server.js",
+    "start": "node dist/index.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
