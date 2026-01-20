@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
   PrismaClient,
@@ -22,13 +23,13 @@ async function main() {
 
   // Clear existing data in correct order (to handle foreign key constraints)
   console.log("🧹 Cleaning existing data...");
-  await prisma.message.deleteMany();
+  await prisma.user.deleteMany();
   await prisma.conversation.deleteMany();
+  await prisma.message.deleteMany();
   await prisma.session.deleteMany();
   await prisma.apiUsage.deleteMany();
   await prisma.errorLog.deleteMany();
   await prisma.systemLog.deleteMany();
-  await prisma.user.deleteMany();
 
   // Create sample users
   console.log("👥 Creating users...");
