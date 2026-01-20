@@ -11,21 +11,6 @@ interface AuthenticatedSocket extends Socket {
   sessionId?: string;
 }
 
-// Helper function to parse cookies from cookie string
-function parseCookies(cookieString: string): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  if (!cookieString) return cookies;
-
-  cookieString.split(";").forEach((cookie) => {
-    const [name, value] = cookie.trim().split("=");
-    if (name && value) {
-      cookies[name] = decodeURIComponent(value);
-    }
-  });
-
-  return cookies;
-}
-
 export function setupWebSocket(io: SocketIOServer) {
   // Authentication middleware for socket connections
 
@@ -58,9 +43,9 @@ export function setupWebSocket(io: SocketIOServer) {
   io.use(async (socket: AuthenticatedSocket, next) => {
     // const cookie = socket.request.headers.cookie;
     try {
-      const cookieString = socket.handshake.headers.cookie;
-      const cookies = parseCookies(cookieString || "");
-      const token = cookies[cookieNames.sessionToken];
+      const cookieString = socket.handshake.auth.token;
+
+      const token = cookieString.split(" ")[1];
 
       if (!token) {
         return next(new Error("Authentication token required"));
@@ -212,13 +197,13 @@ export function setupWebSocket(io: SocketIOServer) {
                 socket.userId!,
                 conversation.id,
                 userMessage.id,
-                crisisResult
+                crisisResult,
               );
 
               // Get crisis resources based on severity (Nigeria)
               const resources = await aiService.getCrisisResources(
                 crisisResult.severity || CrisisSeverity.MEDIUM,
-                "NG"
+                "NG",
               );
 
               // Emit crisis alert to client
@@ -343,7 +328,7 @@ export function setupWebSocket(io: SocketIOServer) {
                 socketId: socket.id,
               });
             }
-          }
+          },
         );
       } catch (error) {
         logger.error("WebSocket chat message error:", {

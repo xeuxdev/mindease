@@ -6,6 +6,8 @@ import { ChatMessages } from "~/components/chat/chat-messages";
 import { ChatMessageLoader } from "~/components/ui/loaders";
 import { CrisisModal } from "~/components/chat/crisis-modal";
 import type { CrisisDetectionResult } from "~/api/types";
+import { cookieNames } from "~/config/site";
+import { getToken } from "~/lib/get-token";
 
 interface Conversation {
   id: string;
@@ -53,8 +55,11 @@ export default function ConversationPage() {
     setFetchingMessages(true);
 
     const newSocket = io(socketUrl, {
-      transports: ["websocket", "polling"],
+      auth: {
+        token: `Bearer ${getToken()}`,
+      },
       timeout: 5000,
+      transports: ["websocket"],
     });
 
     // Connection event handlers
