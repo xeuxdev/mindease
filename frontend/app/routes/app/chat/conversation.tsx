@@ -35,10 +35,11 @@ export default function ConversationPage() {
 
   const [socket, setSocket] = React.useState<Socket | null>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
+  const [conversationTitle, setConversationTitle] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [isConnected, setIsConnected] = React.useState(false);
   const [connectionError, setConnectionError] = React.useState<string | null>(
-    null
+    null,
   );
   const [fetchingMessages, setFetchingMessages] = React.useState(true);
   const [waitForAIResponse, setWaitForAIResponse] = React.useState(false);
@@ -110,7 +111,7 @@ export default function ConversationPage() {
             (msg) =>
               msg.role === "ASSISTANT" &&
               msg.isStreaming &&
-              msg.id.includes(data.conversationId)
+              msg.id.includes(data.conversationId),
           );
 
           if (existingStreamingMessage) {
@@ -122,7 +123,7 @@ export default function ConversationPage() {
                     content: data.fullContent + data.content,
                     isStreaming: true,
                   }
-                : msg
+                : msg,
             );
           } else {
             // Create new streaming message
@@ -155,8 +156,8 @@ export default function ConversationPage() {
         prev.map((msg) =>
           msg.isStreaming && msg.role === "ASSISTANT"
             ? { ...msg, isStreaming: false }
-            : msg
-        )
+            : msg,
+        ),
       );
     });
 
@@ -185,10 +186,10 @@ export default function ConversationPage() {
           prev.map((msg) =>
             msg.isStreaming && msg.role === "ASSISTANT"
               ? { ...msg, isStreaming: false }
-              : msg
-          )
+              : msg,
+          ),
         );
-      }
+      },
     );
 
     // Get conversation messages
@@ -207,8 +208,9 @@ export default function ConversationPage() {
             isStreaming: false,
           }));
           setMessages(formattedMessages);
+          setConversationTitle(data.conversation.title);
         }
-      }
+      },
     );
 
     // Crisis detection event
@@ -270,6 +272,8 @@ export default function ConversationPage() {
 
   return (
     <div className="flex flex-col h-full">
+      <title>{conversationTitle}</title>
+
       {/* Error Banner */}
       {hasError && (
         <div className="bg-red-50 border-b border-red-200 px-4 py-3">
