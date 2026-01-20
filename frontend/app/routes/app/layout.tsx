@@ -12,7 +12,7 @@ import type { Route } from "./+types/layout";
 export async function loader({ request }: Route.LoaderArgs) {
   const cookieHeader = request.headers.get("Cookie");
   const cookie = Object.fromEntries(
-    cookieHeader?.split("; ").map((c) => c.split("=")) || []
+    cookieHeader?.split("; ").map((c) => c.split("=")) || [],
   );
 
   if (!cookie[cookieNames.session_token] || !cookie[cookieNames.hashedId]) {
@@ -25,7 +25,7 @@ export default function AppLayout() {
     <div className="min-h-screen">
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset className="flex flex-col h-[calc(100vh-24px)]">
+        <SidebarInset className="flex flex-col h-[calc(100dvh-24px)]">
           <header className="flex h-16 shrink-0 items-center gap-2 border-b">
             <div className="flex items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
