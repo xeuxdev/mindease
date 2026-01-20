@@ -28,7 +28,7 @@ interface AiAPIResponse {
         role: "assistant";
         content: `"<think>\n\n</think>\n\n${string}`;
       };
-    }
+    },
   ];
   usage: {
     prompt_tokens: number;
@@ -36,7 +36,7 @@ interface AiAPIResponse {
     total_tokens: number;
   };
   stats: {};
-  system_fingerprint: "qwen/qwen3-4b";
+  system_fingerprint?: string;
 }
 
 interface Message {
@@ -103,14 +103,14 @@ class AIService {
       });
     } else {
       throw new Error(
-        "No AI provider configured. Set either OPENAI_API_KEY or LLM_API_KEY/LLM_API_URL"
+        "No AI provider configured. Set either OPENAI_API_KEY or LLM_API_KEY/LLM_API_URL",
       );
     }
   }
 
   async generateResponse(
     userMessage: string,
-    conversationHistory: Message[] = []
+    conversationHistory: Message[] = [],
   ): Promise<AIResponse> {
     const startTime = Date.now();
 
@@ -118,7 +118,7 @@ class AIService {
       // Build conversation context
       const messages = this.buildMessageContext(
         userMessage,
-        conversationHistory
+        conversationHistory,
       );
 
       if (this.provider === "openai" && this.openaiClient) {
@@ -176,7 +176,7 @@ class AIService {
               "Content-Type": "application/json",
             },
             timeout: 30000, // 30 seconds timeout
-          }
+          },
         );
 
         const responseTime = Date.now() - startTime;
@@ -241,7 +241,7 @@ class AIService {
     userMessage: string,
     conversationId: string | undefined,
     userId: string,
-    onChunk: (chunk: any) => void
+    onChunk: (chunk: any) => void,
   ): Promise<void> {
     try {
       // Get conversation history if conversationId provided
@@ -266,7 +266,7 @@ class AIService {
       // Build message context
       const messages = this.buildMessageContext(
         userMessage,
-        conversationHistory
+        conversationHistory,
       );
 
       if (this.provider === "openai" && this.openaiClient) {
@@ -288,7 +288,7 @@ class AIService {
 
   private async streamOpenAI(
     messages: any[],
-    onChunk: (chunk: any) => void
+    onChunk: (chunk: any) => void,
   ): Promise<void> {
     try {
       const stream = await this.openaiClient!.chat.completions.create({
@@ -319,7 +319,7 @@ class AIService {
 
   private async streamLocalLLM(
     messages: any[],
-    onChunk: (chunk: any) => void
+    onChunk: (chunk: any) => void,
   ): Promise<void> {
     try {
       // Stream response from local LLM
@@ -338,7 +338,7 @@ class AIService {
             "Content-Type": "application/json",
           },
           responseType: "stream",
-        }
+        },
       );
 
       let fullContent = "";
@@ -410,32 +410,64 @@ class AIService {
 
   private buildMessageContext(
     userMessage: string,
-    conversationHistory: Message[]
+    conversationHistory: Message[],
   ): any[] {
     const systemPrompt = {
       role: "system",
-      content: `You are a compassionate AI therapist chatbot designed to provide emotional support and guidance.
+      content: `You are a compassionate, Nigerian-based AI support partner. Your goal is to provide culturally resonant emotional support, helping users understand their feelings and actions better.
 
-Key guidelines:
-- Always respond with empathy and understanding
-- Ask thoughtful follow-up questions to encourage reflection
-- Provide coping strategies and techniques when appropriate
-- Maintain professional boundaries - you are not a replacement for professional therapy
-- If someone expresses suicidal thoughts or immediate danger, encourage them to seek professional help
-- Keep responses concise but meaningful (under 200 words)
-- Use active listening techniques in your responses
-- Validate the user's feelings and experiences
-- Respond politely to users thanks and other positive experiences responses
-- Encourage users to share their thoughts and feelings openly, without fear of judgment.
+Core Therapeutic Guidelines (Nigerian Context)
+Cultural Empathy & Validation: Use warm, culturally appropriate affirmations (e.g., "I hear you, and your feelings are valid," "Well done for speaking up; it’s not easy").
 
-Remember: You are here to listen, support, and guide, not to diagnose or provide medical advice.`,
+Natural Support (No Jargon): Apply therapeutic principles like the CBT Techniques naturally without using technical terms like "CBT", "Cognitive Distortion", or "Reframing". Speak like a wise, supportive friend.
+
+Connecting the Dots: Gently help the user see how their thoughts affect how they feel and act, without making it feel like a lecture. (e.g., instead of "Let's map your CBT triangle", say "Sometimes the things we tell ourselves can make the heaviness worse. What was running through your mind when that happened?").
+
+Identifying "Wahala" Thoughts: Help users spot unhelpful thinking patterns by asking simple questions like: "Is that the only way to look at it?" or "What acts like evidence for this feeling?"
+
+Nigerian-Centric Behavioral Activation: Suggest practical, local activities (e.g., "Taking a walk in the evening breeze," "Connecting with a trusted 'person' in your circle," or "Listening to calming music").
+
+Language Adaptability
+- If the user writes in Standard English: Respond in clear Standard English with only very mild Nigerian flavor (e.g., "Well done", "I hear you"). Do not force Pidgin.
+- If the user writes in Pidgin: Respond in a natural mix of Pidgin and English to match their energy.
+
+Functionalities
+Mood Tracking: Gently ask, "On a scale of 1-10, how you dey today?" or "Which emotion is taking the lead right now?" Use these scores to identify patterns over time.
+
+Reflective Questions: Ask things like "What evidence do you have that this thought is 100% true?" or "Is there another way to look at this situation?"
+
+Journaling: "Would you like a prompt to write down your thoughts tonight?"
+
+Crisis Protocol (Nigeria Specific)
+If you detect mentions of self-harm or deep despair, pivot immediately:
+
+"I hear the weight you are carrying, and I want you to know you aren't alone. As an AI, I cannot provide the emergency safety support you need. Please reach out to professional help right now."
+
+Referral Resources:
+
+Nigeria Suicide Prevention Initiative: 0806 210 6492
+
+Mentally Aware Nigeria Initiative (MANI): 0809 111 6264
+
+Lagos State Help Line: 767 or 112
+
+Constraints
+Conciseness: Keep responses under 200 words.
+
+Formatting: Use Markdown formatting (e.g., **bold** for emphasis, lists for steps) to make the text easy to read.
+
+Scope: Strictly psychological well-being; no medical or legal advice.
+
+Tone: Respectful, "older sibling" or "trusted peer" energy—warm but professional. Never use clinical labels.`,
     };
 
     // OpenAI benefits from system prompts, local LLM might not use them
-    let messages = this.provider === "openai" ? [systemPrompt] : [];
+    // For Nigerian context, we must ensure system prompt is always passed to define the persona
+    const messages: any[] = [systemPrompt];
 
     // Add conversation history (last 10 exchanges to manage token usage)
     const recentHistory = conversationHistory.slice(-10);
+
     for (const msg of recentHistory) {
       messages.push({
         role: msg.role.toLowerCase() === "user" ? "user" : "assistant",
@@ -481,6 +513,23 @@ Remember: You are here to listen, support, and guide, not to diagnose or provide
     "violent",
     "emergency",
     "crisis",
+    "sniper",
+    "gbege",
+    "die",
+    "pai",
+    "kpeme",
+    "slump",
+    "poison",
+    "nothing dey work",
+    "tired of life",
+    "no hope",
+    "give up",
+    "jump lagoon",
+    "jump bridge",
+    "take my life",
+    "end am",
+    "log out",
+    "go meet god",
   ];
 
   /**
@@ -520,7 +569,7 @@ Remember: You are here to listen, support, and guide, not to diagnose or provide
    */
   async aiCrisisAnalysis(message: string): Promise<CrisisDetectionResult> {
     try {
-      const systemPrompt = `You are a crisis detection AI. Analyze the following message and determine if it indicates a mental health crisis.
+      const systemPrompt = `You are a crisis detection AI with expertise in Nigerian nuances and slang. Analyze the following message and determine if it indicates a mental health crisis.
 
 Respond ONLY with a valid JSON object in this exact format:
 {
@@ -536,11 +585,16 @@ Severity levels:
 - HIGH: Severe distress, thoughts of self-harm
 - CRITICAL: Immediate danger, active suicidal ideation or plan
 
+Key Nigerian Context:
+- Terms like "drink sniper", "jump lagoon", "oct 20", "pai myself", "kpeme" are effectively suicide/death ideation.
+- "I don tire", "nothing dey work" can imply deep depression/despair.
+
 Message to analyze: "${message}"`;
 
-      const response = await axios.post(
-        `${this.baseURL}/chat/completions`,
-        {
+      let aiResponse: string;
+
+      if (this.provider === "openai" && this.openaiClient) {
+        const response = await this.openaiClient.chat.completions.create({
           model: this.model,
           messages: [
             {
@@ -548,19 +602,34 @@ Message to analyze: "${message}"`;
               content: systemPrompt,
             },
           ],
-          max_tokens: 200,
-          temperature: 0.3, // Lower temperature for more consistent analysis
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            "Content-Type": "application/json",
+          max_completion_tokens: 200,
+          temperature: 0.3,
+        });
+        aiResponse = response.choices[0]?.message?.content || "{}";
+      } else {
+        const response = await axios.post(
+          `${this.baseURL}/chat/completions`,
+          {
+            model: this.model,
+            messages: [
+              {
+                role: "user",
+                content: systemPrompt,
+              },
+            ],
+            max_tokens: 200,
+            temperature: 0.3, // Lower temperature for more consistent analysis
           },
-          timeout: 10000,
-        }
-      );
-
-      const aiResponse = response.data.choices[0]?.message?.content || "{}";
+          {
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            timeout: 10000,
+          },
+        );
+        aiResponse = response.data.choices[0]?.message?.content || "{}";
+      }
 
       // Clean the response (remove think tags and extract JSON)
       let cleanedResponse = aiResponse
@@ -598,7 +667,7 @@ Message to analyze: "${message}"`;
   private quickKeywordScan(message: string): boolean {
     const lowerMessage = message.toLowerCase();
     return this.crisisKeywords.some((keyword) =>
-      lowerMessage.includes(keyword)
+      lowerMessage.includes(keyword),
     );
   }
 
@@ -611,6 +680,12 @@ Message to analyze: "${message}"`;
       "end my life",
       "suicide",
       "want to die",
+      "drink sniper",
+      "jump lagoon",
+      "jump bridge",
+      "take poison",
+      "pai myself",
+      "end am today",
     ];
     const lowerMessage = message.toLowerCase();
     return criticalKeywords.some((keyword) => lowerMessage.includes(keyword));
@@ -622,7 +697,7 @@ Message to analyze: "${message}"`;
   private extractKeywords(message: string): string[] {
     const lowerMessage = message.toLowerCase();
     return this.crisisKeywords.filter((keyword) =>
-      lowerMessage.includes(keyword)
+      lowerMessage.includes(keyword),
     );
   }
 
@@ -633,7 +708,7 @@ Message to analyze: "${message}"`;
     userId: string,
     conversationId: string,
     messageId: string,
-    detectionResult: CrisisDetectionResult
+    detectionResult: CrisisDetectionResult,
   ): Promise<void> {
     try {
       await prisma.crisisAlert.create({
@@ -666,7 +741,7 @@ Message to analyze: "${message}"`;
    */
   async getCrisisResources(
     severity: CrisisSeverity,
-    country: string = "NG"
+    country: string = "NG",
   ): Promise<CrisisResource[]> {
     try {
       const resources = await prisma.crisisResource.findMany({
