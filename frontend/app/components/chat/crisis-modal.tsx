@@ -93,14 +93,14 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="w-[calc(100%-1.5rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6"
         showCloseButton={true}
       >
         <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-2">
             <div
               className={cn(
-                "p-3 rounded-full",
+                "p-2.5 sm:p-3 rounded-full",
                 config.bgColor,
                 config.borderColor,
                 "border",
@@ -109,10 +109,10 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
               <SeverityIcon className={cn("size-6", config.color)} />
             </div>
             <div className="flex-1">
-              <DialogTitle className="text-xl">
+              <DialogTitle className="text-lg sm:text-xl">
                 We're Here to Support You
               </DialogTitle>
-              <DialogDescription className="text-sm mt-1">
+              <DialogDescription className="text-xs sm:text-sm mt-1">
                 It takes courage to reach out. You don't have to face this
                 alone.
               </DialogDescription>
@@ -125,7 +125,7 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
           {severity === "CRITICAL" || severity === "HIGH" ? (
             <div
               className={cn(
-                "p-4 rounded-lg border",
+                "p-3 sm:p-4 rounded-lg border",
                 config.bgColor,
                 config.borderColor,
               )}
@@ -138,7 +138,7 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
                   >
                     Immediate Support Available
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     If you're in immediate danger or having thoughts of
                     self-harm, please reach out to a crisis helpline below or
                     call emergency services (112 or 199).
@@ -160,9 +160,9 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
                 {crisisData.resources.map((resource) => (
                   <div
                     key={resource.id}
-                    className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold text-sm">
@@ -191,7 +191,7 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
                       </div>
 
                       {resource.contact && (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2 w-full sm:w-auto shrink-0">
                           {resource.type === "hotline" ||
                           resource.type === "emergency" ? (
                             <Button
@@ -233,38 +233,38 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
               Immediate Self-Care Steps
             </h3>
             <div className="space-y-2">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-start gap-3 p-2.5 sm:p-3 rounded-lg bg-muted/50">
                 <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-semibold text-primary">1</span>
                 </div>
-                <p className="text-sm flex-1">
+                <p className="text-xs sm:text-sm flex-1">
                   Take slow, deep breaths. Try breathing in for 4 counts,
                   holding for 4, and out for 4.
                 </p>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-start gap-3 p-2.5 sm:p-3 rounded-lg bg-muted/50">
                 <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-semibold text-primary">2</span>
                 </div>
-                <p className="text-sm flex-1">
+                <p className="text-xs sm:text-sm flex-1">
                   Ground yourself: Notice 5 things you can see, 4 you can touch,
                   3 you can hear, 2 you can smell, and 1 you can taste.
                 </p>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-start gap-3 p-2.5 sm:p-3 rounded-lg bg-muted/50">
                 <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-semibold text-primary">3</span>
                 </div>
-                <p className="text-sm flex-1">
+                <p className="text-xs sm:text-sm flex-1">
                   Reach out to someone you trust - a friend, family member, or
                   one of the helplines above.
                 </p>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="flex items-start gap-3 p-2.5 sm:p-3 rounded-lg bg-muted/50">
                 <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-semibold text-primary">4</span>
                 </div>
-                <p className="text-sm flex-1">
+                <p className="text-xs sm:text-sm flex-1">
                   Remove yourself from immediate stressors if possible. Find a
                   safe, quiet space.
                 </p>
