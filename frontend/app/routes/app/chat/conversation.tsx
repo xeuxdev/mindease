@@ -286,7 +286,7 @@ export default function ConversationPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 text-sm">
-                  Connection Error
+                  Connection Issue
                 </h3>
                 <p className="text-red-700 text-sm mt-1">{connectionError}</p>
               </div>
@@ -294,7 +294,7 @@ export default function ConversationPage() {
                 onClick={reconnect}
                 className="text-red-700 hover:text-red-900 font-medium text-sm whitespace-nowrap ml-2"
               >
-                Retry
+                Reconnect
               </button>
             </div>
           </div>

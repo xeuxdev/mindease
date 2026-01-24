@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import { Socket, Server as SocketIOServer } from "socket.io";
-import { cookieNames } from "../config/constants";
 import { prisma } from "../config/database";
 import { env, jwtConfig } from "../config/env";
 import { logger } from "../utils/logger";
@@ -173,9 +172,10 @@ export function setupWebSocket(io: SocketIOServer) {
 
         // **CRISIS DETECTION** - Run asynchronously (non-blocking)
         // This runs in the background and doesn't delay the AI response
-        (async () => {
+        // Using Promise.resolve().then() to ensure it's truly async and non-blocking
+        Promise.resolve().then(async () => {
           try {
-            logger.info("Starting crisis detection", {
+            logger.info("Starting crisis detection (async, non-blocking)", {
               userId: socket.userId,
               conversationId: conversation.id,
               messageId: userMessage.id,
@@ -201,7 +201,7 @@ export function setupWebSocket(io: SocketIOServer) {
               );
 
               // Get crisis resources based on severity (Nigeria)
-              const resources = await aiService.getCrisisResources(
+              const resources = aiService.getCrisisResources(
                 crisisResult.severity || CrisisSeverity.MEDIUM,
                 "NG",
               );
@@ -212,7 +212,6 @@ export function setupWebSocket(io: SocketIOServer) {
                 messageId: userMessage.id,
                 severity: crisisResult.severity,
                 confidence: crisisResult.confidence,
-                reason: crisisResult.reason,
                 resources: resources,
               });
 
@@ -221,18 +220,30 @@ export function setupWebSocket(io: SocketIOServer) {
                 conversationId: conversation.id,
                 resourceCount: resources.length,
               });
+            } else {
+              logger.info("No crisis detected in message", {
+                userId: socket.userId,
+                conversationId: conversation.id,
+                messageId: userMessage.id,
+              });
             }
           } catch (error) {
-            logger.error("Crisis detection error (non-blocking):", error);
+            logger.error("Crisis detection error (non-blocking):", {
+              error: error instanceof Error ? error.message : String(error),
+              userId: socket.userId,
+              conversationId: conversation.id,
+            });
             // Don't emit error to client as this is a background process
           }
-        })();
+        });
 
+        // **AI RESPONSE GENERATION** - Starts immediately (runs in parallel with crisis detection)
         // Start typing indicator
         socket.emit("ai_typing", { conversationId: conversation.id });
 
         const startTime = Date.now();
         let fullContent = "";
+        let chunkCount = 0;
 
         // Stream AI response
         await aiService.streamResponse(
@@ -241,7 +252,9 @@ export function setupWebSocket(io: SocketIOServer) {
           socket.userId!,
           async (chunk) => {
             if (chunk.type === "chunk") {
-              fullContent += chunk.content;
+              // Use fullContent from chunk to ensure consistency
+              fullContent = chunk.fullContent || fullContent + chunk.content;
+              chunkCount++;
 
               // Emit streaming chunk to client
               socket.emit("ai_chunk", {
@@ -250,6 +263,16 @@ export function setupWebSocket(io: SocketIOServer) {
                 fullContent: fullContent,
               });
             } else if (chunk.type === "done" || chunk.type === "complete") {
+              // Ensure we have the final content
+              if (chunk.content && chunk.content.length > fullContent.length) {
+                fullContent = chunk.content;
+              }
+
+              logger.info("AI stream callback complete event", {
+                conversationId: conversation.id,
+                chunkCount,
+                finalContentLength: fullContent.length,
+              });
               try {
                 // Stop typing indicator
                 socket.emit("ai_stopped_typing", {

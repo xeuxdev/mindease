@@ -33,7 +33,6 @@ interface CrisisDetectionResult {
   severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   keywords?: string[];
   confidence?: number;
-  reason?: string;
   resources?: CrisisResource[];
 }
 
@@ -86,7 +85,7 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
       window.open(
         contact.startsWith("http") ? contact : `https://${contact}`,
         "_blank",
-        "noopener,noreferrer"
+        "noopener,noreferrer",
       );
     }
   };
@@ -104,7 +103,7 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
                 "p-3 rounded-full",
                 config.bgColor,
                 config.borderColor,
-                "border"
+                "border",
               )}
             >
               <SeverityIcon className={cn("size-6", config.color)} />
@@ -128,7 +127,7 @@ export function CrisisModal({ isOpen, onClose, crisisData }: CrisisModalProps) {
               className={cn(
                 "p-4 rounded-lg border",
                 config.bgColor,
-                config.borderColor
+                config.borderColor,
               )}
             >
               <div className="flex items-start gap-3">

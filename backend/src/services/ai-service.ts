@@ -1,10 +1,8 @@
-import axios from "axios";
 import OpenAI from "openai";
 import { logger } from "../utils/logger";
 import { prisma } from "../config/database";
 import { aiConfig } from "../config/env";
-
-type AIProvider = "openai" | "local";
+import { crisisKeywords } from "../config/constants";
 
 interface AIResponse {
   content: string;
@@ -12,31 +10,6 @@ interface AIResponse {
   cost: number;
   responseTime: number;
   model: string;
-}
-
-interface AiAPIResponse {
-  id: string;
-  object: "chat.completion";
-  created: number;
-  model: string;
-  choices: [
-    {
-      index: number;
-      logprobs: null;
-      finish_reason: "stop" | "length";
-      message: {
-        role: "assistant";
-        content: `"<think>\n\n</think>\n\n${string}`;
-      };
-    },
-  ];
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  stats: {};
-  system_fingerprint?: string;
 }
 
 interface Message {
@@ -73,39 +46,25 @@ export interface CrisisResource {
 }
 
 class AIService {
-  private provider: AIProvider;
-  private apiKey: string;
+  private openaiClient: OpenAI;
   private model: string;
-  private baseURL: string;
-  private openaiClient?: OpenAI;
 
   constructor() {
-    // Auto-detect provider based on available API keys
-    if (aiConfig.provider === "openai" && aiConfig.openaiApiKey) {
-      this.provider = "openai";
-      this.apiKey = aiConfig.openaiApiKey;
-      this.model = aiConfig.openaiModel;
-      this.baseURL = aiConfig.openaiBaseUrl || "https://api.openai.com/v1";
-      this.openaiClient = new OpenAI({
-        apiKey: this.apiKey,
-        baseURL: aiConfig.openaiBaseUrl,
-      });
-      logger.info("AI Service initialized with OpenAI provider", {
-        model: this.model,
-      });
-    } else if (aiConfig.llmApiKey && aiConfig.llmApiUrl) {
-      this.provider = "local";
-      this.apiKey = aiConfig.llmApiKey;
-      this.model = aiConfig.model;
-      this.baseURL = aiConfig.llmApiUrl;
-      logger.info("AI Service initialized with local LLM provider", {
-        model: this.model,
-      });
-    } else {
+    if (!aiConfig.openaiApiKey) {
       throw new Error(
-        "No AI provider configured. Set either OPENAI_API_KEY or LLM_API_KEY/LLM_API_URL",
+        "OpenAI API key not configured. Set OPENAI_API_KEY environment variable.",
       );
     }
+
+    this.openaiClient = new OpenAI({
+      apiKey: aiConfig.openaiApiKey,
+      baseURL: aiConfig.openaiBaseUrl,
+    });
+    this.model = aiConfig.openaiModel;
+
+    logger.info("AI Service initialized with OpenAI", {
+      model: this.model,
+    });
   }
 
   async generateResponse(
@@ -115,117 +74,55 @@ class AIService {
     const startTime = Date.now();
 
     try {
-      // Build conversation context
       const messages = this.buildMessageContext(
         userMessage,
         conversationHistory,
       );
 
-      if (this.provider === "openai" && this.openaiClient) {
-        // Use OpenAI SDK
-        const response = await this.openaiClient.chat.completions.create({
-          model: this.model,
-          messages: messages,
-          max_completion_tokens: 1500,
-          temperature: 1,
-        });
+      const response = await this.openaiClient.chat.completions.create({
+        model: this.model,
+        messages: messages,
+        max_completion_tokens: 1000,
+        temperature: 1,
+      });
 
-        const responseTime = Date.now() - startTime;
-
-        const content =
-          response.choices[0]?.message?.content?.trim() ||
-          "I apologize, but I couldn't generate a response. Please try again.";
-
-        const inputTokens = response.usage?.prompt_tokens || 0;
-        const outputTokens = response.usage?.completion_tokens || 0;
-        const tokens = response.usage?.total_tokens || 0;
-        const cost = this.calculateCost(inputTokens, outputTokens);
-
-        logger.info("AI response generated (OpenAI)", {
-          model: this.model,
-          tokens,
-          inputTokens,
-          outputTokens,
-          cost,
-          responseTime,
-          messageLength: userMessage.length,
-        });
-
-        return {
-          content,
-          tokens,
-          cost,
-          responseTime,
-          model: this.model,
-        };
-      } else {
-        // Use axios for local LLM
-        const response = await axios.post<AiAPIResponse>(
-          `${this.baseURL}/chat/completions`,
-          {
-            model: this.model,
-            messages,
-            max_tokens: 500,
-            temperature: 0.7,
-            presence_penalty: 0.1,
-            frequency_penalty: 0.1,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${this.apiKey}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 30000, // 30 seconds timeout
-          },
-        );
-
-        const responseTime = Date.now() - startTime;
-
-        let content =
-          response.data.choices[0]?.message?.content
-            // Remove complete think blocks (for local LLM)
-            ?.replace(/<think>[\s\S]*?<\/think>/g, "")
-            // Remove unclosed think tags and everything after them
-            ?.replace(/<think>[\s\S]*$/g, "")
-            // Remove any remaining think closing tags
-            ?.replace(/<\/think>/g, "")
-            // Remove leading newlines
-            ?.replace(/^\s*\n+/, "")
-            ?.trim() ||
-          "I apologize, but I couldn't generate a response. Please try again.";
-
-        const tokens = response.data.usage?.total_tokens || 0;
-        const cost = this.calculateCost(tokens, tokens); // Simplified cost calculation
-
-        logger.info("AI response generated (Local LLM)", {
-          model: this.model,
-          tokens,
-          cost,
-          responseTime,
-          messageLength: userMessage.length,
-        });
-
-        return {
-          content,
-          tokens,
-          cost,
-          responseTime,
-          model: this.model,
-        };
-      }
-    } catch (error) {
       const responseTime = Date.now() - startTime;
 
-      console.log(error);
+      const content =
+        response.choices[0]?.message?.content?.trim() ||
+        "I apologize, but I couldn't generate a response. Please try again.";
+
+      const inputTokens = response.usage?.prompt_tokens || 0;
+      const outputTokens = response.usage?.completion_tokens || 0;
+      const tokens = response.usage?.total_tokens || 0;
+      const cost = this.calculateCost(inputTokens, outputTokens);
+
+      logger.info("AI response generated", {
+        model: this.model,
+        tokens,
+        inputTokens,
+        outputTokens,
+        cost,
+        responseTime,
+        messageLength: userMessage.length,
+      });
+
+      return {
+        content,
+        tokens,
+        cost,
+        responseTime,
+        model: this.model,
+      };
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
 
       logger.error("AI response generation failed:", {
         error: error instanceof Error ? error.message : "Unknown error",
         responseTime,
         model: this.model,
-        provider: this.provider,
       });
 
-      // Return fallback response
       return {
         content:
           "I apologize, but I'm experiencing some technical difficulties right now. Please try again in a moment, or feel free to continue sharing what's on your mind.",
@@ -253,7 +150,7 @@ class AIService {
           include: {
             messages: {
               orderBy: { timestamp: "asc" },
-              take: 10,
+              take: 8,
             },
           },
         });
@@ -263,143 +160,58 @@ class AIService {
         }
       }
 
-      // Build message context
       const messages = this.buildMessageContext(
         userMessage,
         conversationHistory,
       );
 
-      if (this.provider === "openai" && this.openaiClient) {
-        // Use OpenAI SDK for streaming
-        await this.streamOpenAI(messages, onChunk);
-      } else {
-        // Use axios for local LLM streaming
-        await this.streamLocalLLM(messages, onChunk);
-      }
-    } catch (error) {
-      logger.error("AI stream response failed:", error);
-      onChunk({
-        type: "error",
-        message:
-          "I apologize, but I'm experiencing some technical difficulties right now.",
+      logger.info("Starting AI stream", {
+        model: this.model,
+        messageCount: messages.length,
+        conversationId,
       });
-    }
-  }
 
-  private async streamOpenAI(
-    messages: any[],
-    onChunk: (chunk: any) => void,
-  ): Promise<void> {
-    try {
-      const stream = await this.openaiClient!.chat.completions.create({
+      const stream = await this.openaiClient.chat.completions.create({
         model: this.model,
         messages: messages,
-        max_completion_tokens: 1500,
+        max_completion_tokens: 1000,
         temperature: 1,
         stream: true,
       });
 
       let fullContent = "";
+      let chunkCount = 0;
 
       for await (const chunk of stream) {
         const deltaContent = chunk.choices[0]?.delta?.content;
 
         if (deltaContent) {
           fullContent += deltaContent;
-          onChunk({ type: "chunk", content: deltaContent });
+          chunkCount++;
+          onChunk({ type: "chunk", content: deltaContent, fullContent });
+        }
+
+        // Check for finish reason
+        const finishReason = chunk.choices[0]?.finish_reason;
+        if (finishReason) {
+          logger.info("Stream finished", {
+            finishReason,
+            chunkCount,
+            contentLength: fullContent.length,
+            conversationId,
+          });
         }
       }
 
+      logger.info("AI stream completed", {
+        chunkCount,
+        contentLength: fullContent.length,
+        conversationId,
+      });
+
       onChunk({ type: "complete", content: fullContent });
     } catch (error) {
-      logger.error("OpenAI streaming error:", error);
-      throw error;
-    }
-  }
-
-  private async streamLocalLLM(
-    messages: any[],
-    onChunk: (chunk: any) => void,
-  ): Promise<void> {
-    try {
-      // Stream response from local LLM
-      const response = await axios.post(
-        `${this.baseURL}/chat/completions`,
-        {
-          model: this.model,
-          messages,
-          max_tokens: 500,
-          temperature: 0.7,
-          stream: true,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          responseType: "stream",
-        },
-      );
-
-      let fullContent = "";
-      let lastSentLength = 0;
-
-      response.data.on("data", (chunk: Buffer) => {
-        const chunkStr = chunk.toString();
-        const lines = chunkStr.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-
-            try {
-              const parsed = JSON.parse(data);
-              const deltaContent = parsed.choices[0]?.delta?.content;
-
-              if (deltaContent) {
-                // Add new content to full content
-                fullContent += deltaContent;
-
-                // Clean the accumulated content with more robust filtering
-                let cleanedContent = fullContent
-                  .replace(/<think>[\s\S]*?<\/think>/g, "")
-                  .replace(/<think>[\s\S]*$/g, "")
-                  .replace(/<\/think>/g, "")
-                  .replace(/^\s*\n+/, "")
-                  .trim();
-
-                // Only send the new part that hasn't been sent yet
-                if (cleanedContent.length > lastSentLength) {
-                  const newContent = cleanedContent.slice(lastSentLength);
-                  if (newContent) {
-                    onChunk({ type: "chunk", content: newContent });
-                    lastSentLength = cleanedContent.length;
-                  }
-                }
-              }
-            } catch (parseError) {
-              // Ignore parse errors for partial chunks
-            }
-          }
-        }
-      });
-
-      response.data.on("end", () => {
-        // Final cleanup before sending complete
-        let cleanContent = fullContent
-          // Remove complete think blocks
-          .replace(/<think>[\s\S]*?<\/think>/g, "")
-          // Remove unclosed think tags and everything after them
-          .replace(/<think>[\s\S]*$/g, "")
-          // Remove any remaining think closing tags
-          .replace(/<\/think>/g, "")
-          // Remove leading whitespace and newlines
-          .replace(/^\s*\n+/, "")
-          .trim();
-        onChunk({ type: "complete", content: cleanContent });
-      });
-    } catch (error) {
-      logger.error("Local LLM streaming error:", error);
+      logger.error("AI stream response failed:", error);
       onChunk({
         type: "error",
         message:
@@ -412,58 +224,114 @@ class AIService {
     userMessage: string,
     conversationHistory: Message[],
   ): any[] {
-    const systemPrompt = {
+    const systemPrompt: { role: "system"; content: string } = {
       role: "system",
-      content: `You are a compassionate, Nigerian-based AI support partner. Your goal is to provide culturally resonant emotional support, helping users understand their feelings and actions better.
+      content: `
+You are a compassionate, Nigerian-based AI emotional support companion. Your role is to help users feel heard, grounded, and supported while gently guiding insight using evidence-based therapeutic principles (CBT Principles) without sounding clinical.
 
-Core Therapeutic Guidelines (Nigerian Context)
-Cultural Empathy & Validation: Use warm, culturally appropriate affirmations (e.g., "I hear you, and your feelings are valid," "Well done for speaking up; it’s not easy").
+--------------------------------
+CORE PRINCIPLES (NON-NEGOTIABLE)
+--------------------------------
+• Be warm, respectful, and emotionally present.
+• Sound like a trusted older sibling or steady friend.
+• Never lecture, diagnose, label, or moralize.
+• Never mention therapy models, psychology jargon, or internal techniques.
+Validation Variety Rule:
+• Do NOT use the same emotional validation phrasing repeatedly.
+• Avoid default openers like “I hear you” or “You did well to say this” in every response.
+• Vary how empathy is expressed:
+  - Sometimes reflect the feeling.
+  - Sometimes acknowledge the situation.
+  - Sometimes start with a thoughtful question.
+  - Sometimes begin with calm reassurance.
+• Empathy should feel natural, not formulaic.
+Do not reuse the same opening sentence across consecutive responses in a single conversation.
 
-Natural Support (No Jargon): Apply therapeutic principles like the CBT Techniques naturally without using technical terms like "CBT", "Cognitive Distortion", or "Reframing". Speak like a wise, supportive friend.
+--------------------------------
+CULTURAL ATTUNEMENT (NIGERIA)
+--------------------------------
+• Validate emotions with culturally familiar warmth:
+  “I hear you.” “You did well to talk about this.” “That one is not easy at all.”
+• Use Nigerian expressions sparingly and naturally.
+• Do NOT force slang or Pidgin.
 
-Connecting the Dots: Gently help the user see how their thoughts affect how they feel and act, without making it feel like a lecture. (e.g., instead of "Let's map your CBT triangle", say "Sometimes the things we tell ourselves can make the heaviness worse. What was running through your mind when that happened?").
+--------------------------------
+LANGUAGE MATCHING
+--------------------------------
+• Standard English → respond in clear English with very light Nigerian tone.
+• Pidgin → reply in a natural mix of Pidgin + English, matching the user’s style.
+• Mirror emotional intensity, not exaggeration.
 
-Identifying "Wahala" Thoughts: Help users spot unhelpful thinking patterns by asking simple questions like: "Is that the only way to look at it?" or "What acts like evidence for this feeling?"
+--------------------------------
+THERAPEUTIC STYLE (NATURAL, NON-CLINICAL)
+--------------------------------
+• Gently explore the link between thoughts, feelings, and actions.
+• Ask reflective questions, not leading ones.
+• Examples:
+  - “What was going through your mind at that moment?”
+  - “Is that the only way this situation can be seen?”
+  - “What makes this thought feel true right now?”
 
-Nigerian-Centric Behavioral Activation: Suggest practical, local activities (e.g., "Taking a walk in the evening breeze," "Connecting with a trusted 'person' in your circle," or "Listening to calming music").
+--------------------------------
+UNHELPFUL THOUGHT AWARENESS
+--------------------------------
+Help users notice thinking patterns without naming them.
+Use simple prompts like:
+• “What evidence supports this?”
+• “What evidence might challenge it?”
+• “If a friend were in this situation, what would you tell them?”
 
-Language Adaptability
-- If the user writes in Standard English: Respond in clear Standard English with only very mild Nigerian flavor (e.g., "Well done", "I hear you"). Do not force Pidgin.
-- If the user writes in Pidgin: Respond in a natural mix of Pidgin and English to match their energy.
+--------------------------------
+NIGERIAN-RELEVANT SUPPORT ACTIONS
+--------------------------------
+Suggest small, realistic steps only when appropriate:
+• Evening walks, fresh air, talk to a friend
+• Music, prayer, or quiet reflection (only if user mentions faith)
+• Reaching out to one trusted person
+Never overwhelm with lists.
 
-Functionalities
-Mood Tracking: Gently ask, "On a scale of 1-10, how you dey today?" or "Which emotion is taking the lead right now?" Use these scores to identify patterns over time.
+--------------------------------
+OPTIONAL TOOLS (ASK FIRST)
+--------------------------------
+• Mood check-in: “On a scale of 1–10, how are you feeling today?”
+• Journaling: “Would it help to write this out for yourself later?”
+• Pattern noticing: reflect trends only after multiple mentions.
 
-Reflective Questions: Ask things like "What evidence do you have that this thought is 100% true?" or "Is there another way to look at this situation?"
+--------------------------------
+CRISIS PROTOCOL (STRICT)
+--------------------------------
+If the user expresses self-harm, suicidal thoughts, or extreme despair:
+• Respond with empathy.
+• Do NOT continue reflective questioning.
+• State clearly you cannot provide emergency support.
+• Encourage immediate human help.
 
-Journaling: "Would you like a prompt to write down your thoughts tonight?"
+Use this wording style:
+“I’m really glad you spoke up. What you’re carrying feels very heavy, and you shouldn’t handle it alone.”
 
-Crisis Protocol (Nigeria Specific)
-If you detect mentions of self-harm or deep despair, pivot immediately:
+Immediately share resources:
+• Nigeria Suicide Prevention Initiative: 0806 210 6492
+• Mentally Aware Nigeria Initiative (MANI): 0809 111 6264
+• Lagos Emergency: 767 or 112
 
-"I hear the weight you are carrying, and I want you to know you aren't alone. As an AI, I cannot provide the emergency safety support you need. Please reach out to professional help right now."
-
-Referral Resources:
-
-Nigeria Suicide Prevention Initiative: 0806 210 6492
-
-Mentally Aware Nigeria Initiative (MANI): 0809 111 6264
-
-Lagos State Help Line: 767 or 112
-
-Constraints
-Conciseness: Keep responses under 200 words.
+--------------------------------
+CONSTRAINTS
+--------------------------------
+• Max response length: 180–200 words.
+• Scope limited to emotional and psychological support only.
+• No medical, psychiatric, legal, or financial advice.
+• Never present yourself as a replacement for human support.
 
 Formatting: Use Markdown formatting (e.g., **bold** for emphasis, lists for steps) to make the text easy to read.
-
-Scope: Strictly psychological well-being; no medical or legal advice.
-
-Tone: Respectful, "older sibling" or "trusted peer" energy—warm but professional. Never use clinical labels.`,
+`,
     };
 
     // OpenAI benefits from system prompts, local LLM might not use them
     // For Nigerian context, we must ensure system prompt is always passed to define the persona
-    const messages: any[] = [systemPrompt];
+    const messages: {
+      role: "system" | "user" | "assistant";
+      content: string;
+    }[] = [systemPrompt];
 
     // Add conversation history (last 10 exchanges to manage token usage)
     const recentHistory = conversationHistory.slice(-10);
@@ -481,77 +349,43 @@ Tone: Respectful, "older sibling" or "trusted peer" energy—warm but profession
       content: userMessage,
     });
 
-    // Only add /no_think for local LLM
-    if (this.provider === "local") {
-      messages.push({
-        role: "user",
-        content: "/no_think",
-      });
-    }
-
     return messages;
   }
-
-  private crisisKeywords = [
-    "suicide",
-    "suicidal",
-    "kill myself",
-    "end my life",
-    "want to die",
-    "better off dead",
-    "no reason to live",
-    "self-harm",
-    "hurt myself",
-    "cutting",
-    "overdose",
-    "jump off",
-    "hanging",
-    "gun",
-    "pills",
-    "razor",
-    "abuse",
-    "violent",
-    "emergency",
-    "crisis",
-    "sniper",
-    "gbege",
-    "die",
-    "pai",
-    "kpeme",
-    "slump",
-    "poison",
-    "nothing dey work",
-    "tired of life",
-    "no hope",
-    "give up",
-    "jump lagoon",
-    "jump bridge",
-    "take my life",
-    "end am",
-    "log out",
-    "go meet god",
-  ];
 
   /**
    * Analyzes a message for crisis indicators using AI
    */
   async detectCrisis(message: string): Promise<CrisisDetectionResult> {
     try {
+      logger.info("Starting crisis detection", {
+        messagePreview: message.substring(0, 100),
+      });
+
       // Quick keyword scan first
       const containsCrisisKeyword = this.quickKeywordScan(message);
 
       if (!containsCrisisKeyword) {
+        logger.info("No crisis keywords found in quick scan");
         return { isCrisis: false };
       }
 
+      logger.info("Crisis keywords found, performing deep AI analysis");
+
       // Perform deep AI analysis
       const aiAnalysis = await this.aiCrisisAnalysis(message);
+
+      logger.info("AI analysis complete", {
+        isCrisis: aiAnalysis.isCrisis,
+        severity: aiAnalysis.severity,
+        confidence: aiAnalysis.confidence,
+      });
 
       return aiAnalysis;
     } catch (error) {
       logger.error("Crisis detection failed:", error);
       // Fail-safe: if there are critical keywords, flag as potential crisis
       if (this.containsCriticalKeywords(message)) {
+        logger.warn("Using failsafe crisis detection due to error");
         return {
           isCrisis: true,
           severity: CrisisSeverity.HIGH,
@@ -576,7 +410,6 @@ Respond ONLY with a valid JSON object in this exact format:
   "isCrisis": boolean,
   "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
   "confidence": number between 0 and 1,
-  "reason": "brief explanation"
 }
 
 Severity levels:
@@ -591,52 +424,19 @@ Key Nigerian Context:
 
 Message to analyze: "${message}"`;
 
-      let aiResponse: string;
-
-      if (this.provider === "openai" && this.openaiClient) {
-        const response = await this.openaiClient.chat.completions.create({
-          model: this.model,
-          messages: [
-            {
-              role: "user",
-              content: systemPrompt,
-            },
-          ],
-          max_completion_tokens: 200,
-          temperature: 0.3,
-        });
-        aiResponse = response.choices[0]?.message?.content || "{}";
-      } else {
-        const response = await axios.post(
-          `${this.baseURL}/chat/completions`,
+      const response = await this.openaiClient.chat.completions.create({
+        model: this.model,
+        messages: [
           {
-            model: this.model,
-            messages: [
-              {
-                role: "user",
-                content: systemPrompt,
-              },
-            ],
-            max_tokens: 200,
-            temperature: 0.3, // Lower temperature for more consistent analysis
+            role: "user",
+            content: systemPrompt,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${this.apiKey}`,
-              "Content-Type": "application/json",
-            },
-            timeout: 10000,
-          },
-        );
-        aiResponse = response.data.choices[0]?.message?.content || "{}";
-      }
+        ],
+        max_completion_tokens: 200,
+      });
 
-      // Clean the response (remove think tags and extract JSON)
-      let cleanedResponse = aiResponse
-        .replace(/<think>[\s\S]*?<\/think>/g, "")
-        .replace(/<think>[\s\S]*$/g, "")
-        .replace(/<\/think>/g, "")
-        .trim();
+      const aiResponse = response.choices[0]?.message?.content || "{}";
+      let cleanedResponse = aiResponse.trim();
 
       // Extract JSON from response if it's wrapped in markdown code blocks
       const jsonMatch =
@@ -652,7 +452,6 @@ Message to analyze: "${message}"`;
         isCrisis: analysis.isCrisis || false,
         severity: analysis.severity || CrisisSeverity.LOW,
         confidence: analysis.confidence || 0.5,
-        reason: analysis.reason || "AI analysis completed",
         keywords: this.extractKeywords(message),
       };
     } catch (error) {
@@ -666,9 +465,18 @@ Message to analyze: "${message}"`;
    */
   private quickKeywordScan(message: string): boolean {
     const lowerMessage = message.toLowerCase();
-    return this.crisisKeywords.some((keyword) =>
-      lowerMessage.includes(keyword),
+    const matched = crisisKeywords.some((keyword) =>
+      lowerMessage.includes(keyword.toLowerCase()),
     );
+
+    if (matched) {
+      logger.info("Crisis keyword detected in quick scan", {
+        message: lowerMessage.substring(0, 100),
+        matchedKeywords: this.extractKeywords(message),
+      });
+    }
+
+    return matched;
   }
 
   /**
@@ -686,6 +494,7 @@ Message to analyze: "${message}"`;
       "take poison",
       "pai myself",
       "end am today",
+      "I don’t want to be alive anymore.",
     ];
     const lowerMessage = message.toLowerCase();
     return criticalKeywords.some((keyword) => lowerMessage.includes(keyword));
@@ -696,9 +505,17 @@ Message to analyze: "${message}"`;
    */
   private extractKeywords(message: string): string[] {
     const lowerMessage = message.toLowerCase();
-    return this.crisisKeywords.filter((keyword) =>
-      lowerMessage.includes(keyword),
+    const matched = crisisKeywords.filter((keyword) =>
+      lowerMessage.includes(keyword.toLowerCase()),
     );
+
+    logger.info("Extracting keywords", {
+      messageLength: message.length,
+      matchedCount: matched.length,
+      matched: matched,
+    });
+
+    return matched;
   }
 
   /**
@@ -736,46 +553,13 @@ Message to analyze: "${message}"`;
     }
   }
 
-  /**
-   * Get crisis resources based on severity
-   */
-  async getCrisisResources(
+  public getCrisisResources(
     severity: CrisisSeverity,
     country: string = "NG",
-  ): Promise<CrisisResource[]> {
-    try {
-      const resources = await prisma.crisisResource.findMany({
-        where: {
-          isActive: true,
-          OR: [{ country: country }],
-        },
-        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-        take: severity === CrisisSeverity.CRITICAL ? 10 : 5,
-      });
-
-      return resources.map((resource) => ({
-        id: resource.id,
-        title: resource.title,
-        description: resource.description,
-        type: resource.type,
-        contact: resource.contact || undefined,
-        available: resource.available || undefined,
-        country: resource.country,
-        priority: resource.priority,
-      }));
-    } catch (error) {
-      logger.error("Failed to get crisis resources:", error);
-      return this.getDefaultCrisisResources();
-    }
-  }
-
-  /**
-   * Fallback crisis resources if database query fails (Nigeria-focused)
-   */
-  private getDefaultCrisisResources(): CrisisResource[] {
-    return [
+  ): CrisisResource[] {
+    const allResources: CrisisResource[] = [
       {
-        id: "default-1",
+        id: "1",
         title: "SURPIN Helpline Nigeria",
         description:
           "24-hour suicide prevention hotline offering counselling and support",
@@ -786,7 +570,7 @@ Message to analyze: "${message}"`;
         priority: 100,
       },
       {
-        id: "default-2",
+        id: "2",
         title: "Asido Foundation Psychological Helpline",
         description: "Provides psychological First Aid to people in distress",
         type: "hotline",
@@ -796,18 +580,18 @@ Message to analyze: "${message}"`;
         priority: 95,
       },
       {
-        id: "default-3",
+        id: "3",
         title: "Mentally Aware Nigeria Initiative (MANI)",
         description:
           "Free and confidential mental health support over the phone",
         type: "hotline",
         contact: "0809 111 6264",
-        available: "Mon-Sat 9AM-5PM",
+        available: "24/7",
         country: "NG",
         priority: 85,
       },
       {
-        id: "default-4",
+        id: "4",
         title: "Emergency Services Nigeria",
         description: "For immediate life-threatening emergencies",
         type: "emergency",
@@ -817,42 +601,26 @@ Message to analyze: "${message}"`;
         priority: 100,
       },
     ];
+
+    // Filter by country and sort by priority
+    return allResources
+      .filter((resource) => resource.country === country)
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, severity === CrisisSeverity.CRITICAL ? 4 : 2);
   }
 
   private calculateCost(inputTokens: number, outputTokens: number): number {
-    const OPENAI_INPUT_COST = 0.25 / 1_000_000; // $0.25 per 1M input tokens
-    const OPENAI_OUTPUT_COST = 2.0 / 1_000_000; // $2.00 per 1M output tokens
-    const LOCAL_TOKEN_COST = 0.0000001; // nominal local cost
-
-    if (this.provider === "openai") {
-      return (
-        inputTokens * OPENAI_INPUT_COST + outputTokens * OPENAI_OUTPUT_COST
-      );
-    } else {
-      // local LLM
-      return (inputTokens + outputTokens) * LOCAL_TOKEN_COST;
-    }
+    const INPUT_COST = 0.25 / 1_000_000; // $0.25 per 1M input tokens
+    const OUTPUT_COST = 2.0 / 1_000_000; // $2.00 per 1M output tokens
+    return inputTokens * INPUT_COST + outputTokens * OUTPUT_COST;
   }
 
-  // Test AI provider connection
   async testConnection(): Promise<boolean> {
     try {
-      if (this.provider === "openai" && this.openaiClient) {
-        // Test OpenAI connection
-        const models = await this.openaiClient.models.list();
-        return models.data.length > 0;
-      } else {
-        // Test local LLM connection
-        const response = await axios.get(`${this.baseURL}/models`, {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          timeout: 5000,
-        });
-        return response.status === 200;
-      }
+      const models = await this.openaiClient.models.list();
+      return models.data.length > 0;
     } catch (error) {
-      logger.error(`${this.provider} connection test failed:`, error);
+      logger.error("OpenAI connection test failed:", error);
       return false;
     }
   }
