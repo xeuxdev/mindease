@@ -312,7 +312,7 @@ Use this wording style:
 Immediately share resources:
 • Nigeria Suicide Prevention Initiative: 0806 210 6492
 • Mentally Aware Nigeria Initiative (MANI): 0809 111 6264
-• Lagos Emergency: 767 or 112
+• Emergency Lines: 767 or 112
 
 --------------------------------
 CONSTRAINTS
@@ -405,11 +405,11 @@ Formatting: Use Markdown formatting (e.g., **bold** for emphasis, lists for step
     try {
       const systemPrompt = `You are a crisis detection AI with expertise in Nigerian nuances and slang. Analyze the following message and determine if it indicates a mental health crisis.
 
-Respond ONLY with a valid JSON object in this exact format:
+Respond ONLY with a valid JSON object in this exact format (no markdown, no code blocks):
 {
-  "isCrisis": boolean,
-  "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  "confidence": number between 0 and 1,
+  "isCrisis": true,
+  "severity": "LOW",
+  "confidence": 0.8
 }
 
 Severity levels:
@@ -421,22 +421,41 @@ Severity levels:
 Key Nigerian Context:
 - Terms like "drink sniper", "jump lagoon", "oct 20", "pai myself", "kpeme" are effectively suicide/death ideation.
 - "I don tire", "nothing dey work" can imply deep depression/despair.
-
-Message to analyze: "${message}"`;
+`;
 
       const response = await this.openaiClient.chat.completions.create({
         model: this.model,
         messages: [
           {
-            role: "user",
+            role: "system",
             content: systemPrompt,
           },
+          {
+            role: "user",
+            content: message,
+          },
         ],
-        max_completion_tokens: 200,
+        max_completion_tokens: 300,
+        response_format: { type: "json_object" },
+        stream: false,
       });
 
-      const aiResponse = response.choices[0]?.message?.content || "{}";
-      let cleanedResponse = aiResponse.trim();
+      logger.info("AI crisis analysis raw response", {
+        finishReason: response.choices[0]?.finish_reason,
+        hasContent: !!response.choices[0]?.message?.content,
+      });
+
+      const aiResponse = response.choices[0]?.message?.content?.trim();
+
+      if (!aiResponse) {
+        logger.error("AI returned empty response", {
+          finishReason: response.choices[0]?.finish_reason,
+          choices: JSON.stringify(response.choices),
+        });
+        throw new Error("AI returned empty response");
+      }
+
+      let cleanedResponse = aiResponse;
 
       // Extract JSON from response if it's wrapped in markdown code blocks
       const jsonMatch =
@@ -448,9 +467,15 @@ Message to analyze: "${message}"`;
 
       const analysis = JSON.parse(cleanedResponse);
 
+      logger.info("AI crisis analysis result", {
+        isCrisis: analysis.isCrisis,
+        severity: analysis.severity,
+        confidence: analysis.confidence,
+      });
+
       return {
         isCrisis: analysis.isCrisis || false,
-        severity: analysis.severity || CrisisSeverity.LOW,
+        severity: analysis.severity || CrisisSeverity.MEDIUM,
         confidence: analysis.confidence || 0.5,
         keywords: this.extractKeywords(message),
       };
