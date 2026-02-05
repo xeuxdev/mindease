@@ -174,8 +174,8 @@ class AIService {
       const stream = await this.openaiClient.chat.completions.create({
         model: this.model,
         messages: messages,
-        max_completion_tokens: 1000,
-        temperature: 1,
+        max_completion_tokens: 1500,
+        // temperature: 1,
         stream: true,
       });
 
