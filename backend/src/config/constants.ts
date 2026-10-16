@@ -9,6 +9,8 @@ export const crisisKeywords = [
   "suicide",
   "suicidal",
   "kill myself",
+  "killing myself",
+  "hang myself",
   "end my life",
   "want to die",
   "better off dead",
@@ -39,6 +41,8 @@ export const crisisKeywords = [
   "chop poison",
   "drink poison",
   "poison",
+  "otapiapia",
+  "gammalin",
   "nothing dey work",
   "tired of life",
   "no hope",
@@ -50,4 +54,25 @@ export const crisisKeywords = [
   "log out",
   "go meet god",
   "everyone would be better off without me",
+];
+
+// Phrases that flag a crisis on their own, even if the AI classifier
+// disagrees or fails. Kept lower-case with straight apostrophes; matching
+// normalises the message the same way.
+export const criticalCrisisKeywords = [
+  "kill myself",
+  "killing myself",
+  "hang myself",
+  "end my life",
+  "suicide",
+  "want to die",
+  "drink sniper",
+  "jump lagoon",
+  "jump bridge",
+  "take poison",
+  "pai myself",
+  "end am today",
+  "otapiapia",
+  "gammalin",
+  "i don't want to be alive anymore",
 ];

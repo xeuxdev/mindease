@@ -2,7 +2,8 @@ import OpenAI from "openai";
 import { logger } from "../utils/logger";
 import { prisma } from "../config/database";
 import { aiConfig } from "../config/env";
-import { crisisKeywords } from "../config/constants";
+import { crisisKeywords, criticalCrisisKeywords } from "../config/constants";
+import { containsAnyKeyword, findKeywords } from "../utils/keyword-matcher";
 
 interface AIResponse {
   content: string;
@@ -24,6 +25,19 @@ export enum CrisisSeverity {
   MEDIUM = "MEDIUM",
   HIGH = "HIGH",
   CRITICAL = "CRITICAL",
+}
+
+function parseSeverity(value: unknown): CrisisSeverity {
+  const upper = typeof value === "string" ? value.trim().toUpperCase() : "";
+  return Object.values(CrisisSeverity).includes(upper as CrisisSeverity)
+    ? (upper as CrisisSeverity)
+    : CrisisSeverity.MEDIUM;
+}
+
+function isHighSeverity(severity?: CrisisSeverity): boolean {
+  return (
+    severity === CrisisSeverity.HIGH || severity === CrisisSeverity.CRITICAL
+  );
 }
 
 export interface CrisisDetectionResult {
@@ -310,9 +324,9 @@ Use this wording style:
 “I’m really glad you spoke up. What you’re carrying feels very heavy, and you shouldn’t handle it alone.”
 
 Immediately share resources:
-• Nigeria Suicide Prevention Initiative: 0806 210 6492
+• Nigeria Suicide Prevention Initiative: 0806 210 6493
 • Mentally Aware Nigeria Initiative (MANI): 0809 111 6264
-• Emergency Lines: 767 or 112
+• Emergency Lines: 112 (nationwide), 767 (Lagos only)
 
 --------------------------------
 CONSTRAINTS
@@ -356,52 +370,66 @@ Formatting: Use Markdown formatting (e.g., **bold** for emphasis, lists for step
    * Analyzes a message for crisis indicators using AI
    */
   async detectCrisis(message: string): Promise<CrisisDetectionResult> {
+    logger.info("Starting crisis detection", {
+      messagePreview: message.substring(0, 100),
+    });
+
+    // The classifier runs on every message: a keyword pre-filter dropped
+    // most real crisis messages before the model ever saw them.
+    let aiAnalysis: CrisisDetectionResult | null = null;
     try {
-      logger.info("Starting crisis detection", {
-        messagePreview: message.substring(0, 100),
-      });
+      aiAnalysis = await this.aiCrisisAnalysis(message);
+    } catch {
+      // aiCrisisAnalysis already logged crisis_classifier_failed
+    }
 
-      // Quick keyword scan first
-      const containsCrisisKeyword = this.quickKeywordScan(message);
+    const criticalMatch = this.containsCriticalKeywords(message);
 
-      if (!containsCrisisKeyword) {
-        logger.info("No crisis keywords found in quick scan");
-        return { isCrisis: false };
-      }
-
-      logger.info("Crisis keywords found, performing deep AI analysis");
-
-      // Perform deep AI analysis
-      const aiAnalysis = await this.aiCrisisAnalysis(message);
-
+    // The classifier flags ordinary distress as LOW/MEDIUM, so only
+    // HIGH/CRITICAL verdicts count as a crisis.
+    if (aiAnalysis?.isCrisis && isHighSeverity(aiAnalysis.severity)) {
       logger.info("AI analysis complete", {
-        isCrisis: aiAnalysis.isCrisis,
+        isCrisis: true,
         severity: aiAnalysis.severity,
         confidence: aiAnalysis.confidence,
+        criticalMatch,
       });
-
-      return aiAnalysis;
-    } catch (error) {
-      logger.error("Crisis detection failed:", error);
-      // Fail-safe: if there are critical keywords, flag as potential crisis
-      if (this.containsCriticalKeywords(message)) {
-        logger.warn("Using failsafe crisis detection due to error");
-        return {
-          isCrisis: true,
-          severity: CrisisSeverity.HIGH,
-          keywords: this.extractKeywords(message),
-          confidence: 0.7,
-          reason: "Detected critical keywords (AI analysis failed)",
-        };
-      }
-      return { isCrisis: false };
+      return { ...aiAnalysis, isCrisis: true, reason: "AI classifier" };
     }
+
+    // Fail-safe: critical phrases flag a crisis whether the classifier
+    // disagreed or failed outright.
+    if (criticalMatch) {
+      logger.warn("crisis_failsafe_triggered", {
+        classifierFailed: aiAnalysis === null,
+        classifierSeverity: aiAnalysis?.severity,
+      });
+      return {
+        isCrisis: true,
+        severity: CrisisSeverity.HIGH,
+        keywords: this.extractKeywords(message),
+        confidence: 0.7,
+        reason:
+          aiAnalysis === null
+            ? "Detected critical keywords (AI analysis failed)"
+            : "Detected critical keywords",
+      };
+    }
+
+    logger.info("AI analysis complete", {
+      isCrisis: false,
+      severity: aiAnalysis?.severity,
+      confidence: aiAnalysis?.confidence,
+      classifierFailed: aiAnalysis === null,
+    });
+    return { isCrisis: false };
   }
 
   /**
    * Use AI to perform deep crisis analysis
    */
   async aiCrisisAnalysis(message: string): Promise<CrisisDetectionResult> {
+    let failure: Record<string, unknown> = { stage: "api_error" };
     try {
       const systemPrompt = `You are a crisis detection AI with expertise in Nigerian nuances and slang. Analyze the following message and determine if it indicates a mental health crisis.
 
@@ -435,23 +463,24 @@ Key Nigerian Context:
             content: message,
           },
         ],
-        max_completion_tokens: 300,
+        // Reasoning models (gpt-5-mini) spend this budget on hidden reasoning
+        // first; at 300 over half the calls came back empty.
+        max_completion_tokens: 2000,
         response_format: { type: "json_object" },
         stream: false,
       });
 
-      logger.info("AI crisis analysis raw response", {
-        finishReason: response.choices[0]?.finish_reason,
-        hasContent: !!response.choices[0]?.message?.content,
-      });
-
+      const finishReason = response.choices[0]?.finish_reason;
       const aiResponse = response.choices[0]?.message?.content?.trim();
 
       if (!aiResponse) {
-        logger.error("AI returned empty response", {
-          finishReason: response.choices[0]?.finish_reason,
-          choices: JSON.stringify(response.choices),
-        });
+        failure = {
+          stage: "empty_content",
+          finishReason,
+          completionTokens: response.usage?.completion_tokens,
+          reasoningTokens:
+            response.usage?.completion_tokens_details?.reasoning_tokens,
+        };
         throw new Error("AI returned empty response");
       }
 
@@ -465,6 +494,7 @@ Key Nigerian Context:
         cleanedResponse = jsonMatch[1].trim();
       }
 
+      failure = { stage: "invalid_json", finishReason };
       const analysis = JSON.parse(cleanedResponse);
 
       logger.info("AI crisis analysis result", {
@@ -474,65 +504,33 @@ Key Nigerian Context:
       });
 
       return {
-        isCrisis: analysis.isCrisis || false,
-        severity: analysis.severity || CrisisSeverity.MEDIUM,
+        isCrisis: analysis.isCrisis === true,
+        severity: parseSeverity(analysis.severity),
         confidence: analysis.confidence || 0.5,
         keywords: this.extractKeywords(message),
       };
     } catch (error) {
-      logger.error("AI crisis analysis failed:", error);
+      logger.error("crisis_classifier_failed", {
+        ...failure,
+        model: this.model,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
-  }
-
-  /**
-   * Quick keyword scan to filter out obviously safe messages
-   */
-  private quickKeywordScan(message: string): boolean {
-    const lowerMessage = message.toLowerCase();
-    const matched = crisisKeywords.some((keyword) =>
-      lowerMessage.includes(keyword.toLowerCase()),
-    );
-
-    if (matched) {
-      logger.info("Crisis keyword detected in quick scan", {
-        message: lowerMessage.substring(0, 100),
-        matchedKeywords: this.extractKeywords(message),
-      });
-    }
-
-    return matched;
   }
 
   /**
    * Check for critical keywords that warrant immediate attention
    */
   private containsCriticalKeywords(message: string): boolean {
-    const criticalKeywords = [
-      "kill myself",
-      "end my life",
-      "suicide",
-      "want to die",
-      "drink sniper",
-      "jump lagoon",
-      "jump bridge",
-      "take poison",
-      "pai myself",
-      "end am today",
-      "I don’t want to be alive anymore.",
-    ];
-    const lowerMessage = message.toLowerCase();
-    return criticalKeywords.some((keyword) => lowerMessage.includes(keyword));
+    return containsAnyKeyword(message, criticalCrisisKeywords);
   }
 
   /**
    * Extract matched keywords from message
    */
   private extractKeywords(message: string): string[] {
-    const lowerMessage = message.toLowerCase();
-    const matched = crisisKeywords.filter((keyword) =>
-      lowerMessage.includes(keyword.toLowerCase()),
-    );
+    const matched = findKeywords(message, crisisKeywords);
 
     logger.info("Extracting keywords", {
       messageLength: message.length,
@@ -589,7 +587,7 @@ Key Nigerian Context:
         description:
           "24-hour suicide prevention hotline offering counselling and support",
         type: "hotline",
-        contact: "080 0078 7746",
+        contact: "0800 078 7746",
         available: "24/7",
         country: "NG",
         priority: 100,
